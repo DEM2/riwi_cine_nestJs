@@ -1,0 +1,34 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { createObserveModule } from '@nestjs/observe';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { LocationsModule } from './location/location.module.js';
+import { HealthModule } from './health/health.module.js';
+
+export const { ObserveModule, ObserveInstrument } = createObserveModule();
+
+@Module({
+  imports: [
+    // Distributed tracing, auto-correlated logs, request/job metrics, error
+    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
+    ConfigModule.forRoot({
+      isGlobal:true,
+
+    }),
+    ObserveModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        appKey: configService.getOrThrow<string>('OBSERVE_APP_KEY'),
+        appSecret: configService.getOrThrow<string>('OBSERVE_APP_SECRET'),
+        serviceId: configService.getOrThrow<string>('OBSERVE_APP_NAME'),
+      }),
+    }),
+    LocationsModule,
+    HealthModule,
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
