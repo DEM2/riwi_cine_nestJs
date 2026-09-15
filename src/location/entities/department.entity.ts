@@ -1,6 +1,6 @@
+import type { City } from "./city.entity.js";
+import type { Country } from "./country.entity.js";
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne } from "typeorm";
-import { Country } from "./country.entity.js";
-import { City } from "./city.entity.js";
 
 
 @Entity('departments')
@@ -11,9 +11,9 @@ export class Department {
   @Column()
   name: string;
 
-  @ManyToOne(() => Country, (country) => country.departments)
+  @ManyToOne('Country', 'departments')
   country: Country;
 
-  @OneToMany(() => City, (city) => city.department)
+  @OneToMany('City', 'department')
   cities: City[];
 }

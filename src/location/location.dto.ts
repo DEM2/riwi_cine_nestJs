@@ -1,5 +1,12 @@
+import { IsNotEmpty, IsString } from "class-validator";
 export interface Country {
   id: number;
+  name: string;
+}
+
+export class CreateCountryDto {
+  @IsString()
+  @IsNotEmpty()
   name: string;
 }
 

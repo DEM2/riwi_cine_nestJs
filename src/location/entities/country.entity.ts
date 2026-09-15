@@ -1,5 +1,6 @@
+import type { Department } from "./department.entity.js";
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
-import { Department } from "./department.entity.js";
+
 @Entity('countries')
 export class Country {
   @PrimaryGeneratedColumn()
@@ -8,6 +9,6 @@ export class Country {
   @Column()
   name: string;
 
-  @OneToMany(() => Department, (department) => department.country)
+  @OneToMany('Department', 'country')
   departments: Department[];
 }
