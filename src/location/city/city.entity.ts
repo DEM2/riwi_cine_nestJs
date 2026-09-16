@@ -1,4 +1,4 @@
-import type { Department } from "./department.entity.js";
+import type { Department } from "../department/department.entity.js";
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
 
 @Entity('cities')
@@ -6,7 +6,7 @@ export class City {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ unique: true })
   name: string;
 
   @ManyToOne('Department', 'cities')

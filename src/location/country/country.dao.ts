@@ -1,9 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource, Repository } from "typeorm";
-import { Country } from "./entities/country.entity.js";
-import { Department } from "./entities/department.entity.js";
-import { City } from "./entities/city.entity.js";
-import { CreateCountryDto } from "./location.dto.js";
+import { Country } from "./country.entity.js";
+
+import { CreateCountryDto } from "./country.dto.js";
 
 @Injectable()
 export class CountryDao{

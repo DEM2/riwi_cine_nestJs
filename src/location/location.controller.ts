@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Body, ParseIntPipe } from '@nestjs/common';
 import { LocationsService } from './location.service.js';
-import { CreateCountryDto } from './location.dto.js';
+import { CreateCountryDto } from './country/country.dto.js';
+import { CreateDepartmentDto } from './department/department.dto.js';
 
 @Controller()
 export class LocationsController {
@@ -22,6 +23,16 @@ export class LocationsController {
   @Post('countries')
   createCountry(@Body() createCountryDto: CreateCountryDto) { 
     return this.locationsService.createCountry(createCountryDto);
+  }
+
+  @Get('departments')
+  getDepartments() {
+    return this.locationsService.getDepartments();
+  }
+
+  @Post('departments')
+  createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) { 
+    return this.locationsService.createDepartment(createDepartmentDto);
   }
 
   // @Get('departments/:countryId')

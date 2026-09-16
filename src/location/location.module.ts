@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LocationsController } from './location.controller.js';
 import { LocationsService } from './location.service.js';
-import { CountryDao } from './location.dao.js';
-import { Country } from './entities/country.entity.js';
-import { City } from './entities/city.entity.js';
-import { Department } from './entities/department.entity.js';
+import { CountryDao } from './country/country.dao.js';
+import { Country } from './country/country.entity.js';
+import { Department } from './department/department.entity.js';
+import { City } from './city/city.entity.js';
 
 @Module({
   imports: [
