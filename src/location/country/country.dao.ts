@@ -17,6 +17,12 @@ export class CountryDao{
             where: { id },
         });
     }
+    async findByName(name: string): Promise<Country | null>{
+        const countryRepository = this.getCountries();
+        return await countryRepository.findOne({
+            where: { name },
+        });
+    }
     async createCountry(createCountryDto: CreateCountryDto): Promise<Country>{
         const countryRepository = this.getCountries();
         const country = countryRepository.create(createCountryDto);

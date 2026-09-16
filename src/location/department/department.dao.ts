@@ -17,9 +17,12 @@ export class DepartmentDao{
             where: { id },
         });
     }
-    async createDepartment(createDepartmentDto: CreateDepartmentDto): Promise<Department>{
+    async createDepartment(dto: CreateDepartmentDto): Promise<Department>{
         const departmentRepository = this.getDepartments();
-        const department = departmentRepository.create(createDepartmentDto);
+        const department = departmentRepository.create({
+            name: dto.name,
+            country: { id: dto.countryId },
+        });
         return await departmentRepository.save(department);
     }
 }

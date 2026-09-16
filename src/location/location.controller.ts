@@ -2,6 +2,8 @@ import { Controller, Get, Post, Param, Body, ParseIntPipe } from '@nestjs/common
 import { LocationsService } from './location.service.js';
 import { CreateCountryDto } from './country/country.dto.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
+import { get } from 'https';
+import { CreateCityDto } from './city/city.dto.js';
 
 @Controller()
 export class LocationsController {
@@ -33,6 +35,16 @@ export class LocationsController {
   @Post('departments')
   createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) { 
     return this.locationsService.createDepartment(createDepartmentDto);
+  }
+
+  @Get('cities')
+  getCities() {
+    return this.locationsService.getCities();
+  }
+
+  @Post('cities')
+  createCity(@Body() createCityDto: CreateCityDto) { 
+    return this.locationsService.createCity(createCityDto);
   }
 
   // @Get('departments/:countryId')

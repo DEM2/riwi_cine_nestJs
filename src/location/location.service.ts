@@ -5,41 +5,34 @@ import {
 } from '@nestjs/common';
 import { Country } from './country/country.entity.js';
 import { CreateCountryDto } from './country/country.dto.js';
-import { Repository } from 'typeorm/browser/repository/Repository.js';
-import { InjectRepository } from '@nestjs/typeorm';
+import { CountryDao } from './country/country.dao.js';
 import { Department } from './department/department.entity.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
-
-
+import { DepartmentDao } from './department/department.dao.js';
+import { CreateCityDto } from './city/city.dto.js';
+import { City } from './city/city.entity.js';
+import { CityDao } from './city/city.dao.js';
 
 @Injectable()
 export class LocationsService {
 
   constructor(
-    @InjectRepository(Country)
-    private readonly countryRepository: Repository<Country>,
-
-    @InjectRepository(Department)
-    private readonly departmentRepository: Repository<Department>
+    private readonly countryDao: CountryDao,
+    private readonly departmentDao: DepartmentDao,
+    private readonly cityDao: CityDao,
   ) {}
-  
 
   getCountries(): Promise<Country[]> {
-    return this.countryRepository.find();
+    return this.countryDao.getCountries().find();
   }
-  
 
   async getCountryById(countryId: number): Promise<Country> {
-    const country = await this.countryRepository.findOne({
-      where: { id: countryId },
-    });
-
+    const country = await this.countryDao.getCountryById(countryId);
     if (!country) {
       throw new NotFoundException(
         `País con id ${countryId} no encontrado`,
       );
     }
-
     return country;
   }
 
@@ -58,28 +51,22 @@ export class LocationsService {
       );
     }
 
-    const existingCountry = await this.countryRepository.findOneBy({name: newCountryName});
+    const existingCountry = await this.countryDao.findByName(newCountryName);
     if (existingCountry) {
       throw new BadRequestException(
         `Ya existe un país con el nombre: ${newCountryName}`,
       );
     }
 
-    const newCountry = this.countryRepository.create({
-      name: newCountryName,
-    });
-    return await this.countryRepository.save(newCountry);
+    return await this.countryDao.createCountry({ name: newCountryName });
   }
 
-  
   getDepartments(): Promise<Department[]> {
-    return this.departmentRepository.find();
+    return this.departmentDao.getDepartments().find();
   }
 
   async createDepartment(dto: CreateDepartmentDto): Promise<Department> {
-
     let newDepartmentName = dto.name;
-
     if (typeof newDepartmentName !== 'string') {
       throw new BadRequestException(
         `El nombre del departamento debe ser una cadena de texto`,
@@ -94,13 +81,11 @@ export class LocationsService {
     }
 
     let countryid = dto.countryId;
-
     if (!countryid) {
       throw new BadRequestException(
         `El id del país no puede estar vacío`,
       );
     }
-
     if (typeof countryid !== 'number') {
       throw new BadRequestException(
         `El id del país debe ser un número`,
@@ -108,109 +93,60 @@ export class LocationsService {
     }
 
     await this.getCountryById(countryid);
-  
 
-    const newDepartment = this.departmentRepository.create({
+    return await this.departmentDao.createDepartment({
       name: newDepartmentName,
-      country: { id: countryid },
+      countryId: countryid,
     });
-    return await this.departmentRepository.save(newDepartment);
   }
-  
-  
-  
-  
-  // getCountries(): Country[] {
-  //   const c = new CountryDao();
-  //   ret
-  // }
 
-  // getCountryById(countryId: number): Country {
-  //   const country = COUNTRIES.find(
-  //     (country) => country.id === countryId,
-  //   );
 
-  //   if (!country) {
-  //     throw new NotFoundException(
-  //       `País con id ${countryId} no encontrado`,
-  //     );
-  //   }
+  getCities(): Promise<City[]> {
+    return this.cityDao.getCities().find();
+  }
 
-  //   return country;
-  // }
+  async createCity(dto: CreateCityDto): Promise<City> {
+    let newCityName = dto.name;
+    if (typeof newCityName !== 'string') {
+      throw new BadRequestException(
+        `El nombre de la ciudad debe ser una cadena de texto`,
+      );
+    }
+    newCityName = newCityName.toLowerCase().trim();
 
-  // getDepartmentsByCountry(
-  //   countryId: number,
-  // ): Department[] {
+    if (!newCityName) {
+      throw new BadRequestException(
+        `El nombre de la ciudad no puede estar vacío`,
+      );
+    }
 
-  //   const country = COUNTRIES.find(
-  //     (country) => country.id === countryId,
-  //   );
+    let departmentid = dto.departmentId;
+    if (!departmentid) {
+      throw new BadRequestException(
+        `El id del departamento no puede estar vacío`,
+      );
+    }
+    if (typeof departmentid !== 'number') {
+      throw new BadRequestException(
+        `El id del departamento debe ser un número`,
+      );
+    }
 
-  //   if (!country) {
-  //     throw new NotFoundException(
-  //       `País con id ${countryId} no encontrado`,
-  //     );
-  //   }
+    await this.getDepartmentById(departmentid);
 
-  //   return DEPARTMENTS.filter(
-  //     (department) =>
-  //       department.countryId === countryId,
-  //   );
-  // }
+    return await this.cityDao.createCity({
+      name: newCityName,
+      departmentId: departmentid,
+    });
+  }
 
-  // getDepartmentById(
-  //   departmentId: number,
-  // ): Department {
-
-  //   const department = DEPARTMENTS.find(
-  //     (department) =>
-  //       department.id === departmentId,
-  //   );
-
-  //   if (!department) {
-  //     throw new NotFoundException(
-  //       `Departamento con id ${departmentId} no encontrado`,
-  //     );
-  //   }
-
-  //   return department;
-  // }
-
-  // getCitiesByDepartment(
-  //   departmentId: number,
-  // ): City[] {
-
-  //   const department = DEPARTMENTS.find(
-  //     (department) =>
-  //       department.id === departmentId,
-  //   );
-
-  //   if (!department) {
-  //     throw new NotFoundException(
-  //       `Departamento con id ${departmentId} no encontrado`,
-  //     );
-  //   }
-
-  //   return CITIES.filter(
-  //     (city) =>
-  //       city.departmentId === departmentId &&
-  //       city.isActive,
-  //   );
-  // }
-
-  // getCityById(cityId: number): City {
-
-  //   const city = CITIES.find(
-  //     (city) => city.id === cityId,
-  //   );
-
-  //   if (!city) {
-  //     throw new NotFoundException(
-  //       `Ciudad con id ${cityId} no encontrada`,
-  //     );
-  //   }
-
-  //   return city;
-  // }
+  async getDepartmentById(departmentId: number): Promise<Department> {
+    const department = await this.departmentDao.getDepartmentById(departmentId);
+    if (!department) {
+      throw new NotFoundException(
+        `Departamento con id ${departmentId} no encontrado`,
+      );
+    }
+    return department;
+  } 
 }
