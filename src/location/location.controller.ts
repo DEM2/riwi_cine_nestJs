@@ -1,13 +1,23 @@
-import { Controller, Get, Post, Param, Body, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { LocationsService } from './location.service.js';
 import { CreateCountryDto } from './country/country.dto.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
-import { get } from 'https';
 import { CreateCityDto } from './city/city.dto.js';
 
+@ApiTags('Location')
 @Controller()
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
+
+  // COUNTRIES
 
   @Get('countries')
   getCountries() {
@@ -23,59 +33,47 @@ export class LocationsController {
   }
 
   @Post('countries')
-  createCountry(@Body() createCountryDto: CreateCountryDto) { 
+  createCountry(@Body() createCountryDto: CreateCountryDto) {
     return this.locationsService.createCountry(createCountryDto);
   }
+
+  /// DEPARTMENTS
 
   @Get('departments')
   getDepartments() {
     return this.locationsService.getDepartments();
   }
 
+  @Get('departments/:departmentId')
+  getDepartmentById(
+    @Param('departmentId', ParseIntPipe)
+    departmentId: number,
+  ) {
+    return this.locationsService.getDepartmentById(departmentId);
+  }
+
   @Post('departments')
-  createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) { 
+  createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.locationsService.createDepartment(createDepartmentDto);
   }
+
+  // CITIES
 
   @Get('cities')
   getCities() {
     return this.locationsService.getCities();
   }
 
-  @Post('cities')
-  createCity(@Body() createCityDto: CreateCityDto) { 
-    return this.locationsService.createCity(createCityDto);
+  @Get('cities/:cityId')
+  getCityById(
+    @Param('cityId', ParseIntPipe)
+    cityId: number,
+  ) {
+    return this.locationsService.getCityById(cityId);
   }
 
-  // @Get('departments/:countryId')
-  // getDepartmentsByCountry(
-  //   @Param('countryId', ParseIntPipe)
-  //   countryId: number,
-  // ) {
-  //   return this.locationsService.getDepartmentsByCountry(countryId);
-  // }
-
-  // @Get('department/:departmentId')
-  // getDepartmentById(
-  //   @Param('departmentId', ParseIntPipe)
-  //   departmentId: number,
-  // ) {
-  //   return this.locationsService.getDepartmentById(departmentId);
-  // }
-
-  // @Get('cities/:departmentId')
-  // getCitiesByDepartment(
-  //   @Param('departmentId', ParseIntPipe)
-  //   departmentId: number,
-  // ) {
-  //   return this.locationsService.getCitiesByDepartment(departmentId);
-  // }
-
-  // @Get('city/:cityId')
-  // getCityById(
-  //   @Param('cityId', ParseIntPipe)
-  //   cityId: number,
-  // ) {
-  //   return this.locationsService.getCityById(cityId);
-  // }
+  @Post('cities')
+  createCity(@Body() createCityDto: CreateCityDto) {
+    return this.locationsService.createCity(createCityDto);
+  }
 }

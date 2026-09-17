@@ -1,5 +1,5 @@
-import type { Department } from "../department/department.entity.js";
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import type { Department } from '../department/department.entity.js';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 
 @Entity('cities')
 export class City {
@@ -11,5 +11,4 @@ export class City {
 
   @ManyToOne('Department', 'cities')
   department: Department;
-  
 }

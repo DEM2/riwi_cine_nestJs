@@ -17,7 +17,7 @@ export class CountryDao{
             where: { id },
         });
     }
-    async findByName(name: string): Promise<Country | null>{
+    async findCountryByName(name: string): Promise<Country | null>{
         const countryRepository = this.getCountries();
         return await countryRepository.findOne({
             where: { name },

@@ -22,6 +22,8 @@ export class LocationsService {
     private readonly cityDao: CityDao,
   ) {}
 
+  /// COUNTRY 
+
   getCountries(): Promise<Country[]> {
     return this.countryDao.getCountries().find();
   }
@@ -51,7 +53,7 @@ export class LocationsService {
       );
     }
 
-    const existingCountry = await this.countryDao.findByName(newCountryName);
+    const existingCountry = await this.countryDao.findCountryByName(newCountryName);
     if (existingCountry) {
       throw new BadRequestException(
         `Ya existe un país con el nombre: ${newCountryName}`,
@@ -61,9 +63,21 @@ export class LocationsService {
     return await this.countryDao.createCountry({ name: newCountryName });
   }
 
+  /// DEPARTMENT
+
   getDepartments(): Promise<Department[]> {
     return this.departmentDao.getDepartments().find();
   }
+
+  async getDepartmentById(departmentId: number): Promise<Department> {
+    const department = await this.departmentDao.getDepartmentById(departmentId);
+    if (!department) {
+      throw new NotFoundException(
+        `Departamento con id ${departmentId} no encontrado`,
+      );
+    }
+    return department;
+  } 
 
   async createDepartment(dto: CreateDepartmentDto): Promise<Department> {
     let newDepartmentName = dto.name;
@@ -94,16 +108,34 @@ export class LocationsService {
 
     await this.getCountryById(countryid);
 
+    const existingDepartment = await this.departmentDao.findDepartmentByName(newDepartmentName);
+    if (existingDepartment) {
+      throw new BadRequestException(
+        `Ya existe un departamento con el nombre: ${newDepartmentName}`,
+      );
+    }
+
     return await this.departmentDao.createDepartment({
       name: newDepartmentName,
       countryId: countryid,
     });
   }
 
+  /// CITY
 
   getCities(): Promise<City[]> {
     return this.cityDao.getCities().find();
   }
+
+  async getCityById(cityId: number): Promise<City> {
+    const city = await this.cityDao.getCityById(cityId);
+    if (!city) {
+      throw new NotFoundException(
+        `Ciudad con id ${cityId} no encontrada`,
+      );
+    }
+    return city;
+  } 
 
   async createCity(dto: CreateCityDto): Promise<City> {
     let newCityName = dto.name;
@@ -134,19 +166,18 @@ export class LocationsService {
 
     await this.getDepartmentById(departmentid);
 
+    const existingCity = await this.cityDao.findCityByName(newCityName);
+    if (existingCity) {
+      throw new BadRequestException(
+        `Ya existe una ciudad con el nombre: ${newCityName}`,
+      );
+    }
+
     return await this.cityDao.createCity({
       name: newCityName,
       departmentId: departmentid,
     });
   }
 
-  async getDepartmentById(departmentId: number): Promise<Department> {
-    const department = await this.departmentDao.getDepartmentById(departmentId);
-    if (!department) {
-      throw new NotFoundException(
-        `Departamento con id ${departmentId} no encontrado`,
-      );
-    }
-    return department;
-  } 
+  
 }
