@@ -3,14 +3,26 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Country } from './entities/country.entity.js';
-import {CountryDao} from './location.dao.js';
-import { CreateCountryDto } from './location.dto.js';
+import { Country } from './country/country.entity.js';
+import { CreateCountryDto } from './country/country.dto.js';
+import { CountryDao } from './country/country.dao.js';
+import { Department } from './department/department.entity.js';
+import { CreateDepartmentDto } from './department/department.dto.js';
+import { DepartmentDao } from './department/department.dao.js';
+import { CreateCityDto } from './city/city.dto.js';
+import { City } from './city/city.entity.js';
+import { CityDao } from './city/city.dao.js';
 
 @Injectable()
 export class LocationsService {
 
-  constructor(private readonly countryDao: CountryDao) {}
+  constructor(
+    private readonly countryDao: CountryDao,
+    private readonly departmentDao: DepartmentDao,
+    private readonly cityDao: CityDao,
+  ) {}
+
+  /// COUNTRY 
 
   getCountries(): Promise<Country[]> {
     return this.countryDao.getCountries().find();
@@ -18,13 +30,11 @@ export class LocationsService {
 
   async getCountryById(countryId: number): Promise<Country> {
     const country = await this.countryDao.getCountryById(countryId);
-
     if (!country) {
       throw new NotFoundException(
         `País con id ${countryId} no encontrado`,
       );
     }
-
     return country;
   }
 
@@ -43,102 +53,131 @@ export class LocationsService {
       );
     }
 
-    return await this.countryDao.createCountry({
-      name: newCountryName,
-    } as CreateCountryDto);
+    const existingCountry = await this.countryDao.findCountryByName(newCountryName);
+    if (existingCountry) {
+      throw new BadRequestException(
+        `Ya existe un país con el nombre: ${newCountryName}`,
+      );
+    }
+
+    return await this.countryDao.createCountry({ name: newCountryName });
   }
 
-  // getCountries(): Country[] {
-  //   const c = new CountryDao();
-  //   ret
-  // }
+  /// DEPARTMENT
 
-  // getCountryById(countryId: number): Country {
-  //   const country = COUNTRIES.find(
-  //     (country) => country.id === countryId,
-  //   );
+  getDepartments(): Promise<Department[]> {
+    return this.departmentDao.getDepartments().find();
+  }
 
-  //   if (!country) {
-  //     throw new NotFoundException(
-  //       `País con id ${countryId} no encontrado`,
-  //     );
-  //   }
+  async getDepartmentById(departmentId: number): Promise<Department> {
+    const department = await this.departmentDao.getDepartmentById(departmentId);
+    if (!department) {
+      throw new NotFoundException(
+        `Departamento con id ${departmentId} no encontrado`,
+      );
+    }
+    return department;
+  } 
 
-  //   return country;
-  // }
+  async createDepartment(dto: CreateDepartmentDto): Promise<Department> {
+    let newDepartmentName = dto.name;
+    if (typeof newDepartmentName !== 'string') {
+      throw new BadRequestException(
+        `El nombre del departamento debe ser una cadena de texto`,
+      );
+    }
+    newDepartmentName = newDepartmentName.toLowerCase().trim();
 
-  // getDepartmentsByCountry(
-  //   countryId: number,
-  // ): Department[] {
+    if (!newDepartmentName) {
+      throw new BadRequestException(
+        `El nombre del departamento no puede estar vacío`,
+      );
+    }
 
-  //   const country = COUNTRIES.find(
-  //     (country) => country.id === countryId,
-  //   );
+    let countryid = dto.countryId;
+    if (!countryid) {
+      throw new BadRequestException(
+        `El id del país no puede estar vacío`,
+      );
+    }
+    if (typeof countryid !== 'number') {
+      throw new BadRequestException(
+        `El id del país debe ser un número`,
+      );
+    }
 
-  //   if (!country) {
-  //     throw new NotFoundException(
-  //       `País con id ${countryId} no encontrado`,
-  //     );
-  //   }
+    await this.getCountryById(countryid);
 
-  //   return DEPARTMENTS.filter(
-  //     (department) =>
-  //       department.countryId === countryId,
-  //   );
-  // }
+    const existingDepartment = await this.departmentDao.findDepartmentByName(newDepartmentName);
+    if (existingDepartment) {
+      throw new BadRequestException(
+        `Ya existe un departamento con el nombre: ${newDepartmentName}`,
+      );
+    }
 
-  // getDepartmentById(
-  //   departmentId: number,
-  // ): Department {
+    return await this.departmentDao.createDepartment({
+      name: newDepartmentName,
+      countryId: countryid,
+    });
+  }
 
-  //   const department = DEPARTMENTS.find(
-  //     (department) =>
-  //       department.id === departmentId,
-  //   );
+  /// CITY
 
-  //   if (!department) {
-  //     throw new NotFoundException(
-  //       `Departamento con id ${departmentId} no encontrado`,
-  //     );
-  //   }
+  getCities(): Promise<City[]> {
+    return this.cityDao.getCities().find();
+  }
 
-  //   return department;
-  // }
+  async getCityById(cityId: number): Promise<City> {
+    const city = await this.cityDao.getCityById(cityId);
+    if (!city) {
+      throw new NotFoundException(
+        `Ciudad con id ${cityId} no encontrada`,
+      );
+    }
+    return city;
+  } 
 
-  // getCitiesByDepartment(
-  //   departmentId: number,
-  // ): City[] {
+  async createCity(dto: CreateCityDto): Promise<City> {
+    let newCityName = dto.name;
+    if (typeof newCityName !== 'string') {
+      throw new BadRequestException(
+        `El nombre de la ciudad debe ser una cadena de texto`,
+      );
+    }
+    newCityName = newCityName.toLowerCase().trim();
 
-  //   const department = DEPARTMENTS.find(
-  //     (department) =>
-  //       department.id === departmentId,
-  //   );
+    if (!newCityName) {
+      throw new BadRequestException(
+        `El nombre de la ciudad no puede estar vacío`,
+      );
+    }
 
-  //   if (!department) {
-  //     throw new NotFoundException(
-  //       `Departamento con id ${departmentId} no encontrado`,
-  //     );
-  //   }
+    let departmentid = dto.departmentId;
+    if (!departmentid) {
+      throw new BadRequestException(
+        `El id del departamento no puede estar vacío`,
+      );
+    }
+    if (typeof departmentid !== 'number') {
+      throw new BadRequestException(
+        `El id del departamento debe ser un número`,
+      );
+    }
 
-  //   return CITIES.filter(
-  //     (city) =>
-  //       city.departmentId === departmentId &&
-  //       city.isActive,
-  //   );
-  // }
+    await this.getDepartmentById(departmentid);
 
-  // getCityById(cityId: number): City {
+    const existingCity = await this.cityDao.findCityByName(newCityName);
+    if (existingCity) {
+      throw new BadRequestException(
+        `Ya existe una ciudad con el nombre: ${newCityName}`,
+      );
+    }
 
-  //   const city = CITIES.find(
-  //     (city) => city.id === cityId,
-  //   );
+    return await this.cityDao.createCity({
+      name: newCityName,
+      departmentId: departmentid,
+    });
+  }
 
-  //   if (!city) {
-  //     throw new NotFoundException(
-  //       `Ciudad con id ${cityId} no encontrada`,
-  //     );
-  //   }
-
-  //   return city;
-  // }
+  
 }

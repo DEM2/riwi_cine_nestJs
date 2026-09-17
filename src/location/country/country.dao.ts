@@ -1,9 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource, Repository } from "typeorm";
-import { Country } from "./entities/country.entity.js";
-import { Department } from "./entities/department.entity.js";
-import { City } from "./entities/city.entity.js";
-import { CreateCountryDto } from "./location.dto.js";
+import { Country } from "./country.entity.js";
+
+import { CreateCountryDto } from "./country.dto.js";
 
 @Injectable()
 export class CountryDao{
@@ -16,6 +15,12 @@ export class CountryDao{
         const countryRepository = this.getCountries();
         return await countryRepository.findOne({
             where: { id },
+        });
+    }
+    async findCountryByName(name: string): Promise<Country | null>{
+        const countryRepository = this.getCountries();
+        return await countryRepository.findOne({
+            where: { name },
         });
     }
     async createCountry(createCountryDto: CreateCountryDto): Promise<Country>{
