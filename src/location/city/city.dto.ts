@@ -1,8 +1,8 @@
 import { IsNotEmpty, IsString, IsNumber, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCityDto {
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   id?: number;
