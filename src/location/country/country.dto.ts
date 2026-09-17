@@ -13,3 +13,13 @@ export class CreateCountryDto {
   @IsNotEmpty()
   name: string;
 }
+
+export class CountryResponseDto {
+  @ApiProperty({ example: 1 })
+  @IsNumber()
+  id: number;
+
+  @ApiProperty({ example: 'Colombia' })
+  @IsString()
+  name: string;
+}

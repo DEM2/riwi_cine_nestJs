@@ -6,9 +6,9 @@ import {
   Body,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LocationsService } from './location.service.js';
-import { CreateCountryDto } from './country/country.dto.js';
+import { CountryResponseDto, CreateCountryDto } from './country/country.dto.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
 import { CreateCityDto } from './city/city.dto.js';
 
@@ -19,6 +19,11 @@ export class LocationsController {
 
   // COUNTRIES
   @ApiOperation({ summary: 'obtener países' })
+  @ApiResponse({
+    status: 200,
+    description: 'Países obtenidos exitosamente',
+    type: [CountryResponseDto],
+  })
   @Get('countries')
   getCountries() {
     return this.locationsService.getCountries();
@@ -33,6 +38,11 @@ export class LocationsController {
     return this.locationsService.getCountryById(countryId);
   }
   @ApiOperation({ summary: 'crear país' })
+  @ApiResponse({
+    status: 201,
+    description: 'País creado exitosamente',
+    type: CountryResponseDto,
+  })
   @Post('countries')
   createCountry(@Body() createCountryDto: CreateCountryDto) {
     return this.locationsService.createCountry(createCountryDto);
