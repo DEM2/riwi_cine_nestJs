@@ -11,10 +11,17 @@ export class DepartmentDao{
     public getDepartments(): Repository<Department>{
         return this.dataSource.getRepository(Department);
     }
+    async findAllWithCountry(): Promise<Department[]>{
+        const departmentRepository = this.getDepartments();
+        return await departmentRepository.find({
+            relations: { country: true },
+        });
+    }
     async getDepartmentById(id: number): Promise<Department | null>{
         const departmentRepository = this.getDepartments();
         return await departmentRepository.findOne({
             where: { id },
+            relations: { country: true },
         });
     }
     async findDepartmentByName(name: string): Promise<Department | null>{
@@ -22,6 +29,12 @@ export class DepartmentDao{
             return await departmentRepository.findOne({
                 where: { name },
             });
+    }
+    async getDepartmentsByCountry(countryId: number): Promise<Department[]>{
+        const departmentRepository = this.getDepartments();
+        return await departmentRepository.find({
+            where: { country: { id: countryId } },
+        });
     }
     async createDepartment(dto: CreateDepartmentDto): Promise<Department>{
         const departmentRepository = this.getDepartments();

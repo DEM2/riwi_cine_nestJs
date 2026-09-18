@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -24,8 +25,12 @@ export class LocationsService {
 
   /// COUNTRY 
 
-  getCountries(): Promise<Country[]> {
-    return this.countryDao.getCountries().find();
+  async getCountries(): Promise<Country[]> {
+    const countries = await this.countryDao.getCountries().find();
+    if (countries.length === 0) {
+      throw new NotFoundException('No se encontraron países');
+    }
+    return countries;
   }
 
   async getCountryById(countryId: number): Promise<Country> {
@@ -55,7 +60,7 @@ export class LocationsService {
 
     const existingCountry = await this.countryDao.findCountryByName(newCountryName);
     if (existingCountry) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `Ya existe un país con el nombre: ${newCountryName}`,
       );
     }
@@ -65,8 +70,12 @@ export class LocationsService {
 
   /// DEPARTMENT
 
-  getDepartments(): Promise<Department[]> {
-    return this.departmentDao.getDepartments().find();
+  async getDepartments(): Promise<Department[]> {
+    const departments = await this.departmentDao.findAllWithCountry();
+    if (departments.length === 0) {
+      throw new NotFoundException('No se encontraron departamentos');
+    }
+    return departments;
   }
 
   async getDepartmentById(departmentId: number): Promise<Department> {
@@ -110,7 +119,7 @@ export class LocationsService {
 
     const existingDepartment = await this.departmentDao.findDepartmentByName(newDepartmentName);
     if (existingDepartment) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `Ya existe un departamento con el nombre: ${newDepartmentName}`,
       );
     }
@@ -121,10 +130,19 @@ export class LocationsService {
     });
   }
 
+  async getDepartmentsByCountry(countryId: number): Promise<Department[]> {
+    await this.getCountryById(countryId);
+    return this.departmentDao.getDepartmentsByCountry(countryId);
+  }
+
   /// CITY
 
-  getCities(): Promise<City[]> {
-    return this.cityDao.getCities().find();
+  async getCities(): Promise<City[]> {
+    const cities = await this.cityDao.findAllWithDepartment();
+    if (cities.length === 0) {
+      throw new NotFoundException('No se encontraron ciudades');
+    }
+    return cities;
   }
 
   async getCityById(cityId: number): Promise<City> {
@@ -168,7 +186,7 @@ export class LocationsService {
 
     const existingCity = await this.cityDao.findCityByName(newCityName);
     if (existingCity) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `Ya existe una ciudad con el nombre: ${newCityName}`,
       );
     }
@@ -179,5 +197,8 @@ export class LocationsService {
     });
   }
 
-  
+  async getCitiesByDepartment(departmentId: number): Promise<City[]> {
+    await this.getDepartmentById(departmentId);
+    return this.cityDao.getCitiesByDepartment(departmentId);
+  }
 }

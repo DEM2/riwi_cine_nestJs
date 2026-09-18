@@ -1,7 +1,5 @@
-import type { City } from "../city/city.entity.js";
-import type { Country } from "../country/country.entity.js";
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne } from "typeorm";
-
+import { Country } from "../country/country.entity.js";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('departments')
 export class Department {
@@ -11,9 +9,12 @@ export class Department {
   @Column({ unique: true })
   name: string;
 
-  @ManyToOne('Country', 'departments')
+  @ManyToOne(() => Country)
   country: Country;
 
-  @OneToMany('City', 'department')
-  cities: City[];
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

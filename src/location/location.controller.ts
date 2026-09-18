@@ -6,9 +6,9 @@ import {
   Body,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LocationsService } from './location.service.js';
-import { CreateCountryDto } from './country/country.dto.js';
+import { CountryResponseDto, CreateCountryDto } from './country/country.dto.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
 import { CreateCityDto } from './city/city.dto.js';
 
@@ -18,12 +18,18 @@ export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   // COUNTRIES
-
+  @ApiOperation({ summary: 'obtener países' })
+  @ApiResponse({
+    status: 200,
+    description: 'Países obtenidos exitosamente',
+    type: [CountryResponseDto],
+  })
   @Get('countries')
   getCountries() {
     return this.locationsService.getCountries();
   }
 
+  @ApiOperation({ summary: 'obtener país por Id' })
   @Get('countries/:countryId')
   getCountryById(
     @Param('countryId', ParseIntPipe)
@@ -31,19 +37,33 @@ export class LocationsController {
   ) {
     return this.locationsService.getCountryById(countryId);
   }
+  @ApiOperation({ summary: 'obtener departamentos de un país' })
+  @Get('countries/:countryId/departments')
+  getDepartmentsByCountry(
+    @Param('countryId', ParseIntPipe)
+    countryId: number,
+  ) {
+    return this.locationsService.getDepartmentsByCountry(countryId);
+  }
 
+  @ApiOperation({ summary: 'crear país' })
+  @ApiResponse({
+    status: 201,
+    description: 'País creado exitosamente',
+    type: CountryResponseDto,
+  })
   @Post('countries')
   createCountry(@Body() createCountryDto: CreateCountryDto) {
     return this.locationsService.createCountry(createCountryDto);
   }
 
   /// DEPARTMENTS
-
+  @ApiOperation({ summary: 'obtener departamentos' })
   @Get('departments')
   getDepartments() {
     return this.locationsService.getDepartments();
   }
-
+  @ApiOperation({ summary: 'obtener departamento por Id' })
   @Get('departments/:departmentId')
   getDepartmentById(
     @Param('departmentId', ParseIntPipe)
@@ -52,6 +72,16 @@ export class LocationsController {
     return this.locationsService.getDepartmentById(departmentId);
   }
 
+  @ApiOperation({ summary: 'obtener ciudades de un departamento' })
+  @Get('departments/:departmentId/cities')
+  getCitiesByDepartment(
+    @Param('departmentId', ParseIntPipe)
+    departmentId: number,
+  ) {
+    return this.locationsService.getCitiesByDepartment(departmentId);
+  }
+
+  @ApiOperation({ summary: 'crear departamento' })
   @Post('departments')
   createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.locationsService.createDepartment(createDepartmentDto);
@@ -59,11 +89,13 @@ export class LocationsController {
 
   // CITIES
 
+  @ApiOperation({ summary: 'obtener ciudades' })
   @Get('cities')
   getCities() {
     return this.locationsService.getCities();
   }
 
+  @ApiOperation({ summary: 'obtener ciudade por Id' })
   @Get('cities/:cityId')
   getCityById(
     @Param('cityId', ParseIntPipe)
@@ -72,6 +104,7 @@ export class LocationsController {
     return this.locationsService.getCityById(cityId);
   }
 
+  @ApiOperation({ summary: 'crear ciudad' })
   @Post('cities')
   createCity(@Body() createCityDto: CreateCityDto) {
     return this.locationsService.createCity(createCityDto);

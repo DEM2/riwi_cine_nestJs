@@ -11,10 +11,17 @@ export class CityDao {
   public getCities(): Repository<City> {
     return this.dataSource.getRepository(City);
   }
+  async findAllWithDepartment(): Promise<City[]> {
+    const cityRepository = this.getCities();
+    return await cityRepository.find({
+      relations: { department: true },
+    });
+  }
   async getCityById(id: number): Promise<City | null> {
     const cityRepository = this.getCities();
     return await cityRepository.findOne({
       where: { id },
+      relations: { department: true },
     });
   }
   async findCityByName(name: string): Promise<City | null> {
@@ -23,6 +30,13 @@ export class CityDao {
       where: { name },
     });
   }
+  async getCitiesByDepartment(departmentId: number): Promise<City[]> {
+    const cityRepository = this.getCities();
+    return await cityRepository.find({
+      where: { department: { id: departmentId } },
+    });
+  }
+
   async createCity(dto: CreateCityDto): Promise<City> {
     const cityRepository = this.getCities();
     const city = cityRepository.create({

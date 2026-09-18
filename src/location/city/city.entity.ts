@@ -1,5 +1,5 @@
-import type { Department } from '../department/department.entity.js';
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Department } from '../department/department.entity.js';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('cities')
 export class City {
@@ -9,6 +9,15 @@ export class City {
   @Column({ unique: true })
   name: string;
 
-  @ManyToOne('Department', 'cities')
+  @Column({ default: true })
+  isActive: boolean;
+
+  @ManyToOne(() => Department)
   department: Department;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
