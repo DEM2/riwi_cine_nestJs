@@ -1,5 +1,4 @@
-import type { Department } from "../department/department.entity.js";
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('countries')
 export class Country {
@@ -9,6 +8,10 @@ export class Country {
   @Column({ unique: true })
   name: string;
 
-  @OneToMany('Department', 'country')
-  departments: Department[];
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
 }

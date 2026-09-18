@@ -4,6 +4,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { LocationsModule } from './location/location.module.js';
+import { CinemaComplexModule } from './location/cinema-complex/cinema-complex.module.js';
 import { HealthModule } from './health/health.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -41,6 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
     LocationsModule,
+    CinemaComplexModule,
     HealthModule,
   ],
   controllers: [AppController],

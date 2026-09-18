@@ -71,7 +71,7 @@ export class LocationsService {
   /// DEPARTMENT
 
   async getDepartments(): Promise<Department[]> {
-    const departments = await this.departmentDao.getDepartments().find();
+    const departments = await this.departmentDao.findAllWithCountry();
     if (departments.length === 0) {
       throw new NotFoundException('No se encontraron departamentos');
     }
@@ -130,10 +130,15 @@ export class LocationsService {
     });
   }
 
+  async getDepartmentsByCountry(countryId: number): Promise<Department[]> {
+    await this.getCountryById(countryId);
+    return this.departmentDao.getDepartmentsByCountry(countryId);
+  }
+
   /// CITY
 
   async getCities(): Promise<City[]> {
-    const cities = await this.cityDao.getCities().find();
+    const cities = await this.cityDao.findAllWithDepartment();
     if (cities.length === 0) {
       throw new NotFoundException('No se encontraron ciudades');
     }
@@ -192,5 +197,8 @@ export class LocationsService {
     });
   }
 
-  
+  async getCitiesByDepartment(departmentId: number): Promise<City[]> {
+    await this.getDepartmentById(departmentId);
+    return this.cityDao.getCitiesByDepartment(departmentId);
+  }
 }

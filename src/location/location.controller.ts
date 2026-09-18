@@ -37,6 +37,15 @@ export class LocationsController {
   ) {
     return this.locationsService.getCountryById(countryId);
   }
+  @ApiOperation({ summary: 'obtener departamentos de un país' })
+  @Get('countries/:countryId/departments')
+  getDepartmentsByCountry(
+    @Param('countryId', ParseIntPipe)
+    countryId: number,
+  ) {
+    return this.locationsService.getDepartmentsByCountry(countryId);
+  }
+
   @ApiOperation({ summary: 'crear país' })
   @ApiResponse({
     status: 201,
@@ -61,6 +70,15 @@ export class LocationsController {
     departmentId: number,
   ) {
     return this.locationsService.getDepartmentById(departmentId);
+  }
+
+  @ApiOperation({ summary: 'obtener ciudades de un departamento' })
+  @Get('departments/:departmentId/cities')
+  getCitiesByDepartment(
+    @Param('departmentId', ParseIntPipe)
+    departmentId: number,
+  ) {
+    return this.locationsService.getCitiesByDepartment(departmentId);
   }
 
   @ApiOperation({ summary: 'crear departamento' })
