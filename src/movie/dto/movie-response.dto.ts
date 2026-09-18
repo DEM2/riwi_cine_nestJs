@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MovieFormat } from '../enum/movie.enum.js';
 import { RoomType } from '../enum/movie.enum.js';
 import { SubtitleType } from '../enum/movie.enum.js';
-import { ClassificationType } from '../enum/movie.enum.js';
 
 export class FormatResponseDto {
   @ApiProperty()
@@ -77,14 +76,14 @@ export class ShowtimeResponseDto {
   @ApiProperty()
   isAvailable: boolean;
 
-  @ApiProperty({ type: FormatResponseDto })
-  format: FormatResponseDto;
+  @ApiPropertyOptional({ type: FormatResponseDto })
+  format: FormatResponseDto | null;
 
-  @ApiProperty({ type: RoomResponseDto })
-  room: RoomResponseDto;
+  @ApiPropertyOptional({ type: RoomResponseDto })
+  room: RoomResponseDto | null;
 
-  @ApiProperty({ type: TheaterResponseDto })
-  theater: TheaterResponseDto;
+  @ApiPropertyOptional({ type: TheaterResponseDto })
+  theater: TheaterResponseDto | null;
 }
 
 export class GenreResponseDto {
@@ -148,8 +147,8 @@ export class MovieCardResponseDto {
   @ApiPropertyOptional()
   director?: string;
 
-  @ApiProperty({ type: GenreResponseDto, nullable: true })
-  genre: GenreResponseDto | null;
+  @ApiProperty({ type: [GenreResponseDto]})
+  genres: GenreResponseDto [];
 
   @ApiProperty({ type: ClassificationResponseDto, nullable: true })
   classification: ClassificationResponseDto | null;

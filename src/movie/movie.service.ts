@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MovieDao } from './dao/movie.dao.js';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
-import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto, ShowtimeResponseDto, FormatResponseDto, RoomResponseDto, TheaterResponseDto, GenreResponseDto, ClassificationResponseDto, LanguageResponseDto } from './dto/movie-response.dto.js';
+import { CreateMovieDto } from './dto/create-movie.dto.js';
+import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto, ShowtimeResponseDto, FormatResponseDto } from './dto/movie-response.dto.js';
 import { Movie } from './entity/movie.entity.js';
-import { Showtime } from './entity/showtime.entity.js';
-import { MovieFormat } from './enum/movie.enum.js';
 import { ShowtimeStatus } from './enum/movie.enum.js';
 import { SubtitleType } from './enum/movie.enum.js';
 
@@ -13,6 +12,12 @@ export class MovieService {
   private readonly logger = new Logger(MovieService.name);
 
   constructor(private readonly movieDao: MovieDao) {}
+
+  async getAllMovies(): Promise<MovieCardResponseDto[]> {
+    const movies = await this.movieDao.findActiveMovies();
+    const today = this.startOfDay(new Date());
+    return movies.map(movie => this.mapToMovieCard(movie, today));
+  }
 
   async getWeeklyBillboard(cityId?: number, filters?: MovieFilterDto): Promise<BillboardResponseDto> {
     const today = this.startOfDay(new Date());
@@ -68,7 +73,7 @@ export class MovieService {
     return this.groupMoviesByDate(movies, today, 1);
   }
 
-  async getFilteredMovies(filters: MovieFilterDto, cityId?: number): Promise<BillboardResponseDto> {
+  async getFilteredMovies(filters: MovieFilterDto): Promise<BillboardResponseDto> {
     const today = this.startOfDay(new Date());
     let startDate = today;
     let endDate = this.endOfDay(this.addDays(today, (filters.days ?? 7) - 1));
@@ -78,18 +83,26 @@ export class MovieService {
       endDate = this.endOfDay(new Date(filters.date));
     }
 
+    const genreId = filters.genreId ? parseInt(filters.genreId) : (filters.genre ? parseInt(filters.genre) : undefined);
+    const classificationId = filters.classificationId ? parseInt(filters.classificationId) : (filters.rating ? parseInt(filters.rating) : undefined);
+    const languageId = filters.languageId ? parseInt(filters.languageId) : (filters.language ? parseInt(filters.language) : undefined);
+    const theaterId = filters.theaterId ? parseInt(filters.theaterId) : (filters.complex ? parseInt(filters.complex) : undefined);
+    const formatCode = filters.format || (filters.formatId ? filters.formatId.toString() : undefined);
+    const onlyAvailable = filters.onlyAvailable ?? filters.available;
+    const onlyPremieres = filters.onlyPremieres ?? filters.premiere;
+
     const movies = await this.movieDao.findMoviesWithFilters({
       startDate,
       endDate,
-      genreId: filters.genreId ? parseInt(filters.genreId) : undefined,
-      classificationId: filters.classificationId ? parseInt(filters.classificationId) : undefined,
-      languageId: filters.languageId ? parseInt(filters.languageId) : undefined,
+      genreId,
+      classificationId,
+      languageId,
       roomType: filters.roomType,
-      formatCode: filters.format,
-      theaterId: filters.theaterId ? parseInt(filters.theaterId) : undefined,
-      cityId: cityId || (filters.cityId ? parseInt(filters.cityId) : undefined),
-      onlyAvailable: filters.onlyAvailable,
-      onlyPremieres: filters.onlyPremieres,
+      formatCode,
+      theaterId,
+      cityId: filters.cityId ? parseInt(filters.cityId) : undefined,
+      onlyAvailable,
+      onlyPremieres,
     });
 
     const weeklyData = this.groupMoviesByDate(movies, startDate, filters.days ?? 7);
@@ -114,8 +127,8 @@ export class MovieService {
       const currentDate = this.addDays(startDate, i);
       const dateStr = this.formatDate(currentDate);
 
-      const moviesForDate = movies.filter(movie => 
-        movie.showtimes.some(showtime => 
+      const moviesForDate = movies.filter(movie =>
+        movie.showtimes.some(showtime =>
           this.isSameDay(showtime.startTime, currentDate)
         )
       );
@@ -224,11 +237,11 @@ export class MovieService {
       backdropUrl: movie.backdropUrl,
       duration: movie.duration,
       director: movie.director,
-      genre: movie.genre ? {
-        id: movie.genre.id,
-        name: movie.genre.name,
-        description: movie.genre.description,
-      } : null,
+      genres: movie.genres ? movie.genres.map(g => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+      })) : [],
       classification: movie.classification ? {
         id: movie.classification.id,
         name: movie.classification.name,
@@ -249,6 +262,23 @@ export class MovieService {
       ratingCount: movie.ratingCount,
       releaseDate: movie.releaseDate,
     };
+  }
+
+  async createMovie(createMovieDto: CreateMovieDto): Promise<MovieCardResponseDto> {
+    const releaseDate = createMovieDto.release_date ? new Date(createMovieDto.release_date) : new Date();
+    
+    const existingMovie = await this.movieDao.findMovieByTitleAndReleaseDate(
+      createMovieDto.title,
+      releaseDate,
+    );
+    
+    if (existingMovie) {
+      throw new Error('La película ya se encuentra registrada.');
+    }
+
+    const movie = this.movieDao.createMovie(createMovieDto);
+    const savedMovie = await this.movieDao.saveMovie(movie);
+    return this.getMovieDetail(savedMovie.id) as Promise<MovieCardResponseDto>;
   }
 
   async getMovieDetail(id: number): Promise<MovieCardResponseDto | null> {
