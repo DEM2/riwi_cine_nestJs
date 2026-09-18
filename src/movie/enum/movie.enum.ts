@@ -49,4 +49,5 @@ export enum MovieStatus {
   INACTIVE = 'INACTIVE',
   UPCOMING = 'UPCOMING',
   ARCHIVED = 'ARCHIVED',
+
 }

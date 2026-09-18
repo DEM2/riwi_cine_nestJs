@@ -1,13 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import type { Movie } from './movie.entity.js';
 import type { Format } from './format.entity.js';
 import type { Room } from './room.entity.js';
-import type { Ticket } from '../../ticket/entity/ticket.entity.js';
 import { ShowtimeStatus } from '../enum/movie.enum.js';
 
 @Entity('showtimes')
 @Index(['movie', 'startTime', 'room'])
-@Index(['theater', 'startTime'])
 export class Showtime {
   @PrimaryGeneratedColumn()
   id: number;
@@ -45,9 +43,6 @@ export class Showtime {
 
   @ManyToOne('Room', 'showtimes', { nullable: true })
   room: Room;
-
-  @OneToMany('Ticket', 'showtime')
-  tickets: Ticket[];
 
   @CreateDateColumn()
   createdAt: Date;

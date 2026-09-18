@@ -4,6 +4,8 @@ import type { Classification } from './classification.entity.js';
 import type { Language } from './language.entity.js';
 import type { Showtime } from './showtime.entity.js';
 import { MovieStatus } from '../enum/movie.enum.js';
+import { ManyToMany} from 'typeorm';
+import { JoinTable } from 'typeorm';
 
 @Entity('movies')
 export class Movie {
@@ -59,8 +61,18 @@ export class Movie {
   @Column({ default: false })
   isFeatured: boolean;
 
-  @ManyToOne('Genre', 'movies', { nullable: true })
-  genre: Genre;
+  @ManyToMany('Genre', 'movie')
+  @JoinTable({
+    name:'movie_genres',
+    joinColumn:{
+      name:'movieId',
+      referencedColumnName:'id',
+    },inverseJoinColumn:{
+      name:'genreId',
+      referencedColumnName:'id'
+    },
+  })
+  genres : Genre[];
 
   @ManyToOne('Classification', 'movies', { nullable: true })
   classification: Classification;
