@@ -5,17 +5,17 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { LocationsModule } from './location/location.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MovieModule } from './movie/movie.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
-  imports: [
+imports: [
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ConfigModule.forRoot({
-      isGlobal:true,
-
+      isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -28,8 +28,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DB'),
         autoLoadEntities: true,
-        synchronize: true, // Set to false in production)
-      })
+        synchronize: true,
+      }),
     }),
     ObserveModule.forRootAsync({
       imports: [ConfigModule],
@@ -42,6 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     LocationsModule,
     HealthModule,
+    MovieModule,
   ],
   controllers: [AppController],
   providers: [AppService],
