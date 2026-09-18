@@ -6,6 +6,8 @@ import { AppService } from './app.service.js';
 import { LocationsModule } from './location/location.module.js';
 import { HealthModule } from './health/health.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserModule } from './user/user.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -42,6 +44,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     LocationsModule,
     HealthModule,
+    AuthModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
