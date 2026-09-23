@@ -49,7 +49,7 @@ export class CinemaComplexDao {
   async getCinemaComplexesByCity(cityId: number): Promise<CinemaComplex[]> {
     const cinemaComplexRepository = this.getCinemaComplexes();
     return await cinemaComplexRepository.find({
-      where: { city: { id: cityId } },
+      where: { city: { id: cityId }, isActive: true },
     });
   }
 

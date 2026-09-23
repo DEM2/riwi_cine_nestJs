@@ -13,6 +13,8 @@ import { DepartmentDao } from './department/department.dao.js';
 import { CreateCityDto } from './city/city.dto.js';
 import { City } from './city/city.entity.js';
 import { CityDao } from './city/city.dao.js';
+import { CinemaComplexDao } from './cinema-complex/cinema-complex.dao.js';
+import { SetUserLocationDto, SetUserLocationResponseDto } from './user/user.location.dto.js';
 
 @Injectable()
 export class LocationsService {
@@ -21,6 +23,7 @@ export class LocationsService {
     private readonly countryDao: CountryDao,
     private readonly departmentDao: DepartmentDao,
     private readonly cityDao: CityDao,
+    private readonly cinemaComplexDao: CinemaComplexDao,
   ) {}
 
   /// COUNTRY 
@@ -200,5 +203,50 @@ export class LocationsService {
   async getCitiesByDepartment(departmentId: number): Promise<City[]> {
     await this.getDepartmentById(departmentId);
     return this.cityDao.getCitiesByDepartment(departmentId);
+  }
+
+
+  // USER LOCATION
+  
+  async setUserLocation(dto: SetUserLocationDto): Promise<SetUserLocationResponseDto> {
+    const country = await this.getCountryById(dto.countryId);
+    const department = await this.getDepartmentById(dto.departmentId);
+
+    if (department.country!.id !== dto.countryId) {
+      throw new BadRequestException(
+        `El departamento con id ${dto.departmentId} no pertenece al país con id ${dto.countryId}`,
+      );
+    }
+
+    const city = await this.getCityById(dto.cityId);
+
+    if (city.department!.id !== dto.departmentId) {
+      throw new BadRequestException(
+        `La ciudad con id ${dto.cityId} no pertenece al departamento con id ${dto.departmentId}`,
+      );
+    }
+
+    if (!city.isActive) {
+      throw new BadRequestException(
+        `La ciudad con id ${dto.cityId} no está activa`,
+      );
+    }
+
+    const activeComplexes = await this.cinemaComplexDao.getCinemaComplexesByCity(dto.cityId);
+    if (activeComplexes.length === 0) {
+      throw new NotFoundException(
+        `La ciudad con id ${dto.cityId} no tiene complejos de cine activos`,
+      );
+    }
+
+    return {
+      countryId: country.id,
+      departmentId: department.id,
+      cityId: city.id,
+      countryName: country.name,
+      departmentName: department.name,
+      cityName: city.name,
+      hasActiveCinema: activeComplexes.length > 0,
+    };
   }
 }

@@ -33,7 +33,7 @@ export class CityDao {
   async getCitiesByDepartment(departmentId: number): Promise<City[]> {
     const cityRepository = this.getCities();
     return await cityRepository.find({
-      where: { department: { id: departmentId } },
+      where: { department: { id: departmentId }, isActive: true },
     });
   }
 
