@@ -6,11 +6,12 @@ import {
   Body,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LocationsService } from './location.service.js';
 import { CountryResponseDto, CreateCountryDto } from './country/country.dto.js';
 import { CreateDepartmentDto } from './department/department.dto.js';
 import { CreateCityDto } from './city/city.dto.js';
+import { SetUserLocationDto, SetUserLocationResponseDto } from './user/user.location.dto.js';
 
 @ApiTags('Location')
 @Controller()
@@ -18,95 +19,77 @@ export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   // COUNTRIES
+
+  @Get('countries')
   @ApiOperation({ summary: 'obtener países' })
   @ApiResponse({
     status: 200,
     description: 'Países obtenidos exitosamente',
     type: [CountryResponseDto],
   })
-  @Get('countries')
   getCountries() {
     return this.locationsService.getCountries();
   }
 
-  @ApiOperation({ summary: 'obtener país por Id' })
-  @Get('countries/:countryId')
-  getCountryById(
-    @Param('countryId', ParseIntPipe)
-    countryId: number,
-  ) {
-    return this.locationsService.getCountryById(countryId);
-  }
-  @ApiOperation({ summary: 'obtener departamentos de un país' })
-  @Get('countries/:countryId/departments')
-  getDepartmentsByCountry(
-    @Param('countryId', ParseIntPipe)
-    countryId: number,
-  ) {
-    return this.locationsService.getDepartmentsByCountry(countryId);
-  }
-
+  @Post('countries')
   @ApiOperation({ summary: 'crear país' })
   @ApiResponse({
     status: 201,
     description: 'País creado exitosamente',
     type: CountryResponseDto,
   })
-  @Post('countries')
   createCountry(@Body() createCountryDto: CreateCountryDto) {
     return this.locationsService.createCountry(createCountryDto);
   }
 
-  /// DEPARTMENTS
-  @ApiOperation({ summary: 'obtener departamentos' })
-  @Get('departments')
-  getDepartments() {
-    return this.locationsService.getDepartments();
-  }
-  @ApiOperation({ summary: 'obtener departamento por Id' })
-  @Get('departments/:departmentId')
-  getDepartmentById(
-    @Param('departmentId', ParseIntPipe)
-    departmentId: number,
+  // DEPARTMENTS
+
+  @Get('departments/:countryId')
+  @ApiOperation({ summary: 'obtener departamentos por país' })
+  @ApiParam({ name: 'countryId', type: Number })
+  @ApiResponse({ status: 200, description: 'Departamentos obtenidos exitosamente' })
+  @ApiResponse({ status: 404, description: 'No se encontraron departamentos' })
+  getDepartmentsByCountry(
+    @Param('countryId', ParseIntPipe) countryId: number,
   ) {
-    return this.locationsService.getDepartmentById(departmentId);
+    return this.locationsService.getDepartmentsByCountry(countryId);
   }
 
-  @ApiOperation({ summary: 'obtener ciudades de un departamento' })
-  @Get('departments/:departmentId/cities')
-  getCitiesByDepartment(
-    @Param('departmentId', ParseIntPipe)
-    departmentId: number,
-  ) {
-    return this.locationsService.getCitiesByDepartment(departmentId);
-  }
-
-  @ApiOperation({ summary: 'crear departamento' })
   @Post('departments')
+  @ApiOperation({ summary: 'crear departamento' })
   createDepartment(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.locationsService.createDepartment(createDepartmentDto);
   }
 
   // CITIES
 
-  @ApiOperation({ summary: 'obtener ciudades' })
-  @Get('cities')
-  getCities() {
-    return this.locationsService.getCities();
-  }
-
-  @ApiOperation({ summary: 'obtener ciudade por Id' })
-  @Get('cities/:cityId')
-  getCityById(
-    @Param('cityId', ParseIntPipe)
-    cityId: number,
+  @Get('cities/:departmentId')
+  @ApiOperation({ summary: 'obtener ciudades por departamento' })
+  @ApiParam({ name: 'departmentId', type: Number })
+  @ApiResponse({ status: 200, description: 'Ciudades obtenidas exitosamente' })
+  @ApiResponse({ status: 404, description: 'No se encontraron ciudades' })
+  getCitiesByDepartment(
+    @Param('departmentId', ParseIntPipe) departmentId: number,
   ) {
-    return this.locationsService.getCityById(cityId);
+    return this.locationsService.getCitiesByDepartment(departmentId);
   }
 
-  @ApiOperation({ summary: 'crear ciudad' })
   @Post('cities')
+  @ApiOperation({ summary: 'crear ciudad' })
   createCity(@Body() createCityDto: CreateCityDto) {
     return this.locationsService.createCity(createCityDto);
+  }
+
+  @Post('users/location')
+  @ApiOperation({ summary: 'seleccionar la ubicacion del usuario (país, departamento y ciudad)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Ubicación seleccionada exitosamente',
+    type: SetUserLocationResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'No se encontraron datos' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o ciudad inactiva sin cine activo' })
+  setUserLocation(@Body() setUserLocationDto: SetUserLocationDto) {
+    return this.locationsService.setUserLocation(setUserLocationDto);
   }
 }
