@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { MovieDao } from './dao/movie.dao.js';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
 import { CreateMovieDto } from './dto/create-movie.dto.js';
+import { UpcomingMovieResponseDto, UpcomingNotificationResponseDto } from './dto/upcoming-movie.dto.js';
 import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto, ShowtimeResponseDto, FormatResponseDto } from './dto/movie-response.dto.js';
 import { Movie } from './entity/movie.entity.js';
 import { ShowtimeStatus } from './enum/movie.enum.js';
@@ -19,68 +20,57 @@ export class MovieService {
     return movies.map(movie => this.mapToMovieCard(movie, today));
   }
 
-  async getWeeklyBillboard(cityId?: number, filters?: MovieFilterDto): Promise<BillboardResponseDto> {
+  async getWeeklyBillboard(): Promise<BillboardResponseDto> {
+    // RN-012: cartelera siempre 7 días sin filtros - solo funciones activas
+    const days = 7;
     const today = this.startOfDay(new Date());
-    const endDate = this.endOfDay(this.addDays(today, (filters?.days ?? 7) - 1));
+    const endDate = this.endOfDay(this.addDays(today, days - 1));
 
     const movies = await this.movieDao.findMoviesWithFilters({
       startDate: today,
       endDate,
-      genreId: filters?.genreId ? parseInt(filters.genreId) : undefined,
-      classificationId: filters?.classificationId ? parseInt(filters.classificationId) : undefined,
-      languageId: filters?.languageId ? parseInt(filters.languageId) : undefined,
-      roomType: filters?.roomType,
-      formatCode: filters?.format,
-      theaterId: filters?.theaterId ? parseInt(filters.theaterId) : undefined,
-      cityId: cityId || (filters?.cityId ? parseInt(filters.cityId) : undefined),
-      onlyAvailable: filters?.onlyAvailable,
-      onlyPremieres: filters?.onlyPremieres,
     });
 
-    const weeklyData = this.groupMoviesByDate(movies, today, filters?.days ?? 7);
+    // RN-010: solo películas con al menos 1 showtime activo
+    const moviesWithShowtimes = movies.filter(m => m.showtimes && m.showtimes.length > 0);
+    const weeklyData = this.groupMoviesByDate(moviesWithShowtimes, today, days);
 
-    const totalMovies = new Set(movies.map(m => m.id)).size;
-    const page = filters?.page ?? 1;
-    const limit = filters?.limit ?? 20;
-    const totalPages = Math.ceil(totalMovies / limit);
+    const totalMovies = new Set(moviesWithShowtimes.map(m => m.id)).size;
 
     return {
       week: weeklyData,
       totalMovies,
-      currentPage: page,
-      totalPages,
+      currentPage: 1,
+      totalPages: 1,
     };
   }
 
-  async getTodayBillboard(cityId?: number, filters?: MovieFilterDto): Promise<WeeklyBillboardResponseDto[]> {
+  async getTodayBillboard(): Promise<WeeklyBillboardResponseDto[]> {
     const today = this.startOfDay(new Date());
     const endDate = this.endOfDay(today);
 
     const movies = await this.movieDao.findMoviesWithFilters({
       startDate: today,
       endDate,
-      genreId: filters?.genreId ? parseInt(filters.genreId) : undefined,
-      classificationId: filters?.classificationId ? parseInt(filters.classificationId) : undefined,
-      languageId: filters?.languageId ? parseInt(filters.languageId) : undefined,
-      roomType: filters?.roomType,
-      formatCode: filters?.format,
-      theaterId: filters?.theaterId ? parseInt(filters.theaterId) : undefined,
-      cityId: cityId || (filters?.cityId ? parseInt(filters.cityId) : undefined),
-      onlyAvailable: filters?.onlyAvailable,
-      onlyPremieres: filters?.onlyPremieres,
     });
 
-    return this.groupMoviesByDate(movies, today, 1);
+    const moviesWithShowtimes = movies.filter(m => m.showtimes && m.showtimes.length > 0);
+    return this.groupMoviesByDate(moviesWithShowtimes, today, 1);
   }
 
   async getFilteredMovies(filters: MovieFilterDto): Promise<BillboardResponseDto> {
     const today = this.startOfDay(new Date());
     let startDate = today;
-    let endDate = this.endOfDay(this.addDays(today, (filters.days ?? 7) - 1));
+    // RN-012: por defecto 7 días si no hay fecha específica
+    let days = filters.days ?? 7;
+    let endDate = this.endOfDay(this.addDays(today, days - 1));
 
     if (filters.date) {
       startDate = this.startOfDay(new Date(filters.date));
       endDate = this.endOfDay(new Date(filters.date));
+      days = 1;
+      // Si se filtra por fecha concreta, mostrar solo ese día (excepto que el cliente pida days)
+      if (filters.days) days = filters.days;
     }
 
     const genreId = filters.genreId ? parseInt(filters.genreId) : (filters.genre ? parseInt(filters.genre) : undefined);
@@ -103,14 +93,18 @@ export class MovieService {
       cityId: filters.cityId ? parseInt(filters.cityId) : undefined,
       onlyAvailable,
       onlyPremieres,
+      title: filters.title,
+      page: filters.page,
+      limit: filters.limit,
     });
 
-    const weeklyData = this.groupMoviesByDate(movies, startDate, filters.days ?? 7);
+    const moviesWithShowtimes = movies.filter(m => m.showtimes && m.showtimes.length > 0);
+    const weeklyData = this.groupMoviesByDate(moviesWithShowtimes, startDate, days);
 
-    const totalMovies = new Set(movies.map(m => m.id)).size;
+    const totalMovies = new Set(moviesWithShowtimes.map(m => m.id)).size;
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 20;
-    const totalPages = Math.ceil(totalMovies / limit);
+    const totalPages = Math.ceil(totalMovies / limit) || 1;
 
     return {
       week: weeklyData,
@@ -222,10 +216,14 @@ export class MovieService {
       } : null,
     }));
 
+    // Determinar subtitulada/doblada según idioma: si no hay language, default SUBTITLED.
+    // Mejor heurística: si code ES o name contiene español -> DUBBED, si EN -> SUBTITLED
     let subtitleType: SubtitleType = SubtitleType.SUBTITLED;
-    if (movie.language?.code === 'ES') {
+    const langCode = movie.language?.code?.toUpperCase();
+    const langName = movie.language?.name?.toLowerCase() ?? '';
+    if (langCode === 'ES' || langName.includes('español') || langName.includes('espanol')) {
       subtitleType = SubtitleType.DUBBED;
-    } else if (movie.language?.code === 'EN') {
+    } else if (langCode === 'EN' || langName.includes('inglés') || langName.includes('ingles')) {
       subtitleType = SubtitleType.SUBTITLED;
     }
 
@@ -266,19 +264,32 @@ export class MovieService {
 
   async createMovie(createMovieDto: CreateMovieDto): Promise<MovieCardResponseDto> {
     const releaseDate = createMovieDto.release_date ? new Date(createMovieDto.release_date) : new Date();
-    
+
     const existingMovie = await this.movieDao.findMovieByTitleAndReleaseDate(
       createMovieDto.title,
       releaseDate,
     );
-    
+
     if (existingMovie) {
-      throw new Error('La película ya se encuentra registrada.');
+      // 409 Conflict coherente con swagger Express original
+      throw new ConflictException('La película ya se encuentra registrada.');
     }
 
-    const movie = this.movieDao.createMovie(createMovieDto);
-    const savedMovie = await this.movieDao.saveMovie(movie);
-    return this.getMovieDetail(savedMovie.id) as Promise<MovieCardResponseDto>;
+    try {
+      const movie = this.movieDao.createMovie(createMovieDto);
+      const savedMovie = await this.movieDao.saveMovie(movie);
+      const detail = await this.getMovieDetail(savedMovie.id);
+      if (!detail) {
+        // Fallback si findMovieById no lo encuentra inmediatamente
+        this.logger.warn(`Movie created id=${savedMovie.id} but detail not found`);
+        return this.mapToMovieCard(savedMovie, this.startOfDay(new Date()));
+      }
+      return detail;
+    } catch (error) {
+      this.logger.error('Error creating movie', error instanceof Error ? error.stack : String(error));
+      if (error instanceof ConflictException) throw error;
+      throw error;
+    }
   }
 
   async getMovieDetail(id: number): Promise<MovieCardResponseDto | null> {
@@ -287,5 +298,52 @@ export class MovieService {
 
     const today = this.startOfDay(new Date());
     return this.mapToMovieCard(movie, today);
+  }
+
+  // HU-005: GET /movies/upcoming — listado ordenado por fecha (RN-017, orden en DAO)
+  async getUpcomingMovies(): Promise<UpcomingMovieResponseDto[]> {
+    const movies = await this.movieDao.findUpcomingMovies();
+    const today = this.startOfDay(new Date());
+    return movies.map((movie) => this.mapToUpcomingCard(movie, today));
+  }
+
+  // HU-005: GET /movies/upcoming/:id — detalle solo si es UPCOMING (RN-017)
+  async getUpcomingMovieById(id: number): Promise<UpcomingMovieResponseDto> {
+    const movie = await this.movieDao.findUpcomingMovieById(id);
+    if (!movie) {
+      throw new NotFoundException('La película no está próxima a estrenarse.');
+    }
+    return this.mapToUpcomingCard(movie, this.startOfDay(new Date()));
+  }
+
+  // HU-005: POST /notifications/upcoming — RN-017 + RN-019
+  async createUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotificationResponseDto> {
+    const movie = await this.movieDao.findUpcomingMovieById(movieId);
+    if (!movie) {
+      throw new NotFoundException('La película no está próxima a estrenarse.');
+    }
+    const existing = await this.movieDao.findUpcomingNotification(userId, movieId);
+    if (existing) {
+      throw new ConflictException('Ya solicitaste notificación para esta película.');
+    }
+    const saved = await this.movieDao.saveUpcomingNotification(userId, movieId);
+    return { id: saved.id, userId: saved.userId, movieId: saved.movieId, notified: saved.notified };
+  }
+
+  private mapToUpcomingCard(movie: Movie, date: Date): UpcomingMovieResponseDto {
+    const card = this.mapToMovieCard(movie, date);
+    return {
+      ...card,
+      synopsis: movie.synopsis,
+      trailerUrl: movie.trailerUrl,
+      daysUntilRelease: this.daysUntil(movie.releaseDate, date),
+    };
+  }
+
+  private daysUntil(releaseDate: Date | null, from: Date): number {
+    if (!releaseDate) return 0;
+    const target = this.startOfDay(new Date(releaseDate));
+    const diff = Math.ceil((target.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
   }
 }
