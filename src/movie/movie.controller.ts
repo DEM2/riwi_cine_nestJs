@@ -1,8 +1,9 @@
-import { Controller, Get, Query, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Query, Post, Body, HttpCode, HttpStatus, Param, ParseIntPipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
 import { MovieService } from './movie.service.js';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
 import { CreateMovieDto } from './dto/create-movie.dto.js';
+import { CreateUpcomingNotificationDto, UpcomingMovieResponseDto, UpcomingNotificationResponseDto } from './dto/upcoming-movie.dto.js';
 import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto } from './dto/movie-response.dto.js';
 
 /**
@@ -14,6 +15,9 @@ import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto 
  *  - GET    /api/movies/weekly   : Cartelera 7 días RN-012
  *  - GET    /api/movies/today    : Cartelera hoy
  *  - GET    /api/movies/filter   : Filtros combinados (alias legacy /filtres)
+ *  - GET    /api/movies/upcoming : HU-005 Próximos estrenos RN-017 (orden fecha asc)
+ *  - GET    /api/movies/upcoming/:id : HU-005 Detalle próximo estreno RN-017
+ *  - POST   /api/movies/notifications/upcoming : HU-005 Solicitar aviso RN-017/RN-019
  *
  * Orden: rutas estáticas (weekly/today/filter) antes que genéricas para
  * evitar shadowing si en futuro se añade GET /:id.
@@ -149,8 +153,7 @@ export class MovieController {
    *       500:
    *         description: Internal server error
    */
-  @Get('filter')
-  @Get('filtres')
+  @Get(['filter', 'filtres'])
   @ApiOperation({ summary: 'Get movies applying combined filters' })
   @ApiQuery({ name: 'title', required: false, type: String, description: 'Filtra por título de la película' })
   @ApiQuery({ name: 'genre', required: false, type: String, description: 'Identificador del género' })
@@ -185,5 +188,113 @@ export class MovieController {
   })
   async getMovies(): Promise<MovieCardResponseDto[]> {
     return this.movieService.getAllMovies();
+  }
+
+  /**
+   * GET /api/movies/upcoming
+   * -------------------------
+   * Obtiene la lista de películas próximas a estrenarse (status UPCOMING).
+   * Ordenadas por fecha de estreno ascendente. RN-017.
+   *
+   * Response:
+   *  - 200 OK: Retorna un arreglo de películas con genres, cast, tráiler y contador regresivo.
+   *
+   * @swagger
+   * /api/movies/upcoming:
+   *   get:
+   *     summary: Obtener próximos estrenos
+   *     tags: [Movies]
+   *     responses:
+   *       200:
+   *         description: Lista de próximos estrenos obtenida exitosamente
+   *       500:
+   *         description: Internal server error
+   */
+  @Get('upcoming')
+  @ApiOperation({ summary: 'Obtener próximos estrenos', description: 'HU-005: listado de películas con estado UPCOMING ordenado por fecha de estreno ascendente (RN-017).' })
+  @ApiResponse({ status: 200, description: 'Lista de próximos estrenos obtenida exitosamente', type: [UpcomingMovieResponseDto] })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async getUpcomingMovies(): Promise<UpcomingMovieResponseDto[]> {
+    return this.movieService.getUpcomingMovies();
+  }
+
+  /**
+   * GET /api/movies/upcoming/{id}
+   * ------------------------------
+   * Obtiene el detalle de una película próxima a estrenarse.
+   * Solo si status = UPCOMING. RN-017.
+   *
+   * @swagger
+   * /api/movies/upcoming/{id}:
+   *   get:
+   *     summary: Obtener detalle de un próximo estreno
+   *     tags: [Movies]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: integer }
+   *     responses:
+   *       200:
+   *         description: Detalle del próximo estreno
+   *       404:
+   *         description: La película no está próxima a estrenarse
+   *       500:
+   *         description: Internal server error
+   */
+  @Get('upcoming/:id')
+  @ApiOperation({ summary: 'Obtener detalle de un próximo estreno', description: 'HU-005: detalle solo si la película está en estado UPCOMING (RN-017).' })
+  @ApiParam({ name: 'id', type: Number, description: 'Identificador de la película', example: 5 })
+  @ApiResponse({ status: 200, description: 'Detalle del próximo estreno', type: UpcomingMovieResponseDto })
+  @ApiResponse({ status: 404, description: 'La película no está próxima a estrenarse' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async getUpcomingMovieById(@Param('id', ParseIntPipe) id: number): Promise<UpcomingMovieResponseDto> {
+    return this.movieService.getUpcomingMovieById(id);
+  }
+
+  /**
+   * POST /api/movies/notifications/upcoming
+   * ---------------------------------------
+   * HU005: Registra la solicitud de notificación de un usuario para el
+   * estreno de una película próxima.
+   *
+   * RN-017: la película debe estar en estado UPCOMING.
+   * RN-019: no se permiten solicitudes duplicadas por usuario y película.
+   *
+   * @swagger
+   * /api/movies/notifications/upcoming:
+   *   post:
+   *     summary: Solicitar notificación de próximo estreno
+   *     tags: [Movies]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [userId, movieId]
+   *             properties:
+   *               userId: { type: integer, example: 1 }
+   *               movieId: { type: integer, example: 5 }
+   *     responses:
+   *       201:
+   *         description: Solicitud de notificación registrada exitosamente
+   *       400:
+   *         description: Solicitud duplicada (RN-019) o datos inválidos
+   *       404:
+   *         description: La película no está próxima a estrenarse (RN-017)
+   *       500:
+   *         description: Internal server error
+   */
+  @Post('notifications/upcoming')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Solicitar notificación de próximo estreno', description: 'HU-005: registra el aviso de un usuario para cuando la película entre en cartelera (RN-017, RN-019).' })
+  @ApiBody({ type: CreateUpcomingNotificationDto })
+  @ApiResponse({ status: 201, description: 'Solicitud de notificación registrada exitosamente', type: UpcomingNotificationResponseDto })
+  @ApiResponse({ status: 409, description: 'Ya solicitaste notificación para esta película (RN-019)' })
+  @ApiResponse({ status: 404, description: 'La película no está próxima a estrenarse (RN-017)' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async createUpcomingMovieNotification(@Body() dto: CreateUpcomingNotificationDto): Promise<UpcomingNotificationResponseDto> {
+    return this.movieService.createUpcomingNotification(dto.userId, dto.movieId);
   }
 }

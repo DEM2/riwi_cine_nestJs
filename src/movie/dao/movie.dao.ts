@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Movie } from '../entity/movie.entity.js';
+import { UpcomingNotification } from '../entity/upcoming-notification.entity.js';
 import { MovieStatus } from '../enum/movie.enum.js';
 import { CreateMovieDto } from '../dto/create-movie.dto.js';
 import { Genre } from '../entity/genre.entity.js';
@@ -23,6 +24,9 @@ export class MovieDao {
 
     @InjectRepository(Language)
     private readonly languageRepository: Repository<Language>,
+
+    @InjectRepository(UpcomingNotification)
+    private readonly upcomingNotificationRepository: Repository<UpcomingNotification>,
   ) {}
 
   async findActiveMovies(): Promise<Movie[]> {
@@ -317,4 +321,46 @@ async findMovieByTitleAndReleaseDate(
     },
   });
 }
+
+  // HU-005: RN-017 solo películas con estado UPCOMING, ordenadas por fecha ascendente
+  async findUpcomingMovies(): Promise<Movie[]> {
+    return this.movieRepository.find({
+      where: { status: MovieStatus.UPCOMING },
+      relations: {
+        genres: true,
+        classification: true,
+        language: true,
+        showtimes: {
+          format: true,
+          room: { theater: true },
+        },
+      },
+      order: { releaseDate: 'ASC' },
+    });
+  }
+
+  async findUpcomingMovieById(id: number): Promise<Movie | null> {
+    return this.movieRepository.findOne({
+      where: { id, status: MovieStatus.UPCOMING },
+      relations: {
+        genres: true,
+        classification: true,
+        language: true,
+        showtimes: {
+          format: true,
+          room: { theater: true },
+        },
+      },
+    });
+  }
+
+  // HU-005: RN-019 evita duplicados por usuario y película
+  async findUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotification | null> {
+    return this.upcomingNotificationRepository.findOne({ where: { userId, movieId } });
+  }
+
+  async saveUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotification> {
+    const notification = this.upcomingNotificationRepository.create({ userId, movieId });
+    return this.upcomingNotificationRepository.save(notification);
+  }
 }

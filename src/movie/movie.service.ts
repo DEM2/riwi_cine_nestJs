@@ -1,7 +1,8 @@
-import { Injectable, Logger, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { MovieDao } from './dao/movie.dao.js';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
 import { CreateMovieDto } from './dto/create-movie.dto.js';
+import { UpcomingMovieResponseDto, UpcomingNotificationResponseDto } from './dto/upcoming-movie.dto.js';
 import { BillboardResponseDto, WeeklyBillboardResponseDto, MovieCardResponseDto, ShowtimeResponseDto, FormatResponseDto } from './dto/movie-response.dto.js';
 import { Movie } from './entity/movie.entity.js';
 import { ShowtimeStatus } from './enum/movie.enum.js';
@@ -297,5 +298,52 @@ export class MovieService {
 
     const today = this.startOfDay(new Date());
     return this.mapToMovieCard(movie, today);
+  }
+
+  // HU-005: GET /movies/upcoming — listado ordenado por fecha (RN-017, orden en DAO)
+  async getUpcomingMovies(): Promise<UpcomingMovieResponseDto[]> {
+    const movies = await this.movieDao.findUpcomingMovies();
+    const today = this.startOfDay(new Date());
+    return movies.map((movie) => this.mapToUpcomingCard(movie, today));
+  }
+
+  // HU-005: GET /movies/upcoming/:id — detalle solo si es UPCOMING (RN-017)
+  async getUpcomingMovieById(id: number): Promise<UpcomingMovieResponseDto> {
+    const movie = await this.movieDao.findUpcomingMovieById(id);
+    if (!movie) {
+      throw new NotFoundException('La película no está próxima a estrenarse.');
+    }
+    return this.mapToUpcomingCard(movie, this.startOfDay(new Date()));
+  }
+
+  // HU-005: POST /notifications/upcoming — RN-017 + RN-019
+  async createUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotificationResponseDto> {
+    const movie = await this.movieDao.findUpcomingMovieById(movieId);
+    if (!movie) {
+      throw new NotFoundException('La película no está próxima a estrenarse.');
+    }
+    const existing = await this.movieDao.findUpcomingNotification(userId, movieId);
+    if (existing) {
+      throw new ConflictException('Ya solicitaste notificación para esta película.');
+    }
+    const saved = await this.movieDao.saveUpcomingNotification(userId, movieId);
+    return { id: saved.id, userId: saved.userId, movieId: saved.movieId, notified: saved.notified };
+  }
+
+  private mapToUpcomingCard(movie: Movie, date: Date): UpcomingMovieResponseDto {
+    const card = this.mapToMovieCard(movie, date);
+    return {
+      ...card,
+      synopsis: movie.synopsis,
+      trailerUrl: movie.trailerUrl,
+      daysUntilRelease: this.daysUntil(movie.releaseDate, date),
+    };
+  }
+
+  private daysUntil(releaseDate: Date | null, from: Date): number {
+    if (!releaseDate) return 0;
+    const target = this.startOfDay(new Date(releaseDate));
+    const diff = Math.ceil((target.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
   }
 }
