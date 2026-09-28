@@ -3,6 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Movie } from '../entity/movie.entity.js';
+import { Showtime } from '../entity/showtime.entity.js';
+import { Room } from '../entity/room.entity.js';
+import { Format } from '../entity/format.entity.js';
 import { UpcomingNotification } from '../entity/upcoming-notification.entity.js';
 import { MovieStatus } from '../enum/movie.enum.js';
 import { CreateMovieDto } from '../dto/create-movie.dto.js';
@@ -210,7 +213,16 @@ export class MovieDao {
   }
 
   async findAllGenres() {
-    return this.genreRepository.find();
+    return this.genreRepository.find({ order: { name: 'ASC' } });
+  }
+
+  async findGenreByName(name: string): Promise<Genre | null> {
+    return this.genreRepository.findOne({ where: { name } });
+  }
+
+  async createGenre(name: string, description?: string): Promise<Genre> {
+    const genre = this.genreRepository.create({ name, description });
+    return this.genreRepository.save(genre);
   }
 
   async findAllClassifications() {
@@ -362,5 +374,51 @@ async findMovieByTitleAndReleaseDate(
   async saveUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotification> {
     const notification = this.upcomingNotificationRepository.create({ userId, movieId });
     return this.upcomingNotificationRepository.save(notification);
+  }
+
+  // ---- Showtimes ----
+  async findActiveMovieForShowtime(id: number): Promise<Movie | null> {
+    return this.movieRepository.findOne({ where: { id, status: MovieStatus.ACTIVE } });
+  }
+
+  async findRoom(id: number): Promise<Room | null> {
+    return this.movieRepository.manager.getRepository(Room).findOne({ where: { id } });
+  }
+
+  async findFormat(id: number): Promise<Format | null> {
+    return this.movieRepository.manager.getRepository(Format).findOne({ where: { id } });
+  }
+
+  async hasOverlap(roomId: number, start: Date, end: Date): Promise<boolean> {
+    const count = await this.movieRepository.manager
+      .getRepository(Showtime)
+      .createQueryBuilder('s')
+      .where('s."roomId" = :roomId', { roomId })
+      .andWhere('s.status = :st', { st: 'ACTIVE' })
+      .andWhere('s."startTime" < :end AND s."endTime" > :start', { start, end })
+      .getCount();
+    return count > 0;
+  }
+
+  async createShowtime(data: {
+    movie: Movie; room: Room; format: Format;
+    startTime: Date; endTime: Date;
+    basePrice: number; finalPrice: number;
+    totalSeats: number; availableSeats: number;
+  }): Promise<Showtime> {
+    const repo = this.movieRepository.manager.getRepository(Showtime);
+    const st = repo.create({
+      movie: data.movie,
+      room: data.room,
+      format: data.format,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      basePrice: data.basePrice,
+      finalPrice: data.finalPrice,
+      totalSeats: data.totalSeats,
+      availableSeats: data.availableSeats,
+      status: 'ACTIVE' as any,
+    });
+    return repo.save(st);
   }
 }

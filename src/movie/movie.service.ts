@@ -1,5 +1,8 @@
 import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { MovieDao } from './dao/movie.dao.js';
+import { CreateGenreDto, GenreResponseDto } from './dto/create-genre.dto.js';
+import { CreateShowtimeDto } from './dto/create-showtime.dto.js';
+import { BadRequestException } from '@nestjs/common';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
 import { CreateMovieDto } from './dto/create-movie.dto.js';
 import { UpcomingMovieResponseDto, UpcomingNotificationResponseDto } from './dto/upcoming-movie.dto.js';
@@ -168,7 +171,7 @@ export class MovieService {
   }
 
   private mapToMovieCard(movie: Movie, date: Date): MovieCardResponseDto {
-    const showtimesForDate = movie.showtimes
+    const showtimesForDate = (movie.showtimes ?? [])
       .filter(st => this.isSameDay(st.startTime, date) && st.status === ShowtimeStatus.ACTIVE)
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
@@ -217,15 +220,7 @@ export class MovieService {
     }));
 
     // Determinar subtitulada/doblada según idioma: si no hay language, default SUBTITLED.
-    // Mejor heurística: si code ES o name contiene español -> DUBBED, si EN -> SUBTITLED
-    let subtitleType: SubtitleType = SubtitleType.SUBTITLED;
-    const langCode = movie.language?.code?.toUpperCase();
-    const langName = movie.language?.name?.toLowerCase() ?? '';
-    if (langCode === 'ES' || langName.includes('español') || langName.includes('espanol')) {
-      subtitleType = SubtitleType.DUBBED;
-    } else if (langCode === 'EN' || langName.includes('inglés') || langName.includes('ingles')) {
-      subtitleType = SubtitleType.SUBTITLED;
-    }
+    const subtitleType = this.resolveSubtitleType(movie);
 
     return {
       id: movie.id,
@@ -300,6 +295,43 @@ export class MovieService {
     return this.mapToMovieCard(movie, today);
   }
 
+  async getAllGenres(): Promise<GenreResponseDto[]> {
+    return this.movieDao.findAllGenres();
+  }
+
+  async createGenre(dto: CreateGenreDto): Promise<GenreResponseDto> {
+    const existing = await this.movieDao.findGenreByName(dto.name);
+    if (existing) {
+      throw new ConflictException(`El género '${dto.name}' ya existe.`);
+    }
+    return this.movieDao.createGenre(dto.name, dto.description);
+  }
+
+  async createShowtime(dto: CreateShowtimeDto) {
+    const movie = await this.movieDao.findActiveMovieForShowtime(dto.movieId);
+    if (!movie) throw new NotFoundException(`Película ${dto.movieId} no existe o no está ACTIVE.`);
+    const room = await this.movieDao.findRoom(dto.roomId);
+    if (!room) throw new NotFoundException(`Sala ${dto.roomId} no existe.`);
+    const format = await this.movieDao.findFormat(dto.formatId);
+    if (!format) throw new NotFoundException(`Formato ${dto.formatId} no existe.`);
+
+    const start = new Date(dto.startTime);
+    const end = new Date(dto.endTime);
+    if (end <= start) throw new BadRequestException('endTime debe ser mayor que startTime.');
+
+    const overlap = await this.movieDao.hasOverlap(room.id, start, end);
+    if (overlap) throw new ConflictException('Ya hay una función ACTIVE en esa sala y horario.');
+
+    const totalSeats = dto.totalSeats ?? room.capacity;
+    const finalPrice = dto.finalPrice ?? Number(dto.basePrice) + Number(format.surcharge ?? 0);
+
+    return this.movieDao.createShowtime({
+      movie, room, format, startTime: start, endTime: end,
+      basePrice: dto.basePrice, finalPrice,
+      totalSeats, availableSeats: totalSeats,
+    });
+  }
+
   // HU-005: GET /movies/upcoming — listado ordenado por fecha (RN-017, orden en DAO)
   async getUpcomingMovies(): Promise<UpcomingMovieResponseDto[]> {
     const movies = await this.movieDao.findUpcomingMovies();
@@ -331,13 +363,54 @@ export class MovieService {
   }
 
   private mapToUpcomingCard(movie: Movie, date: Date): UpcomingMovieResponseDto {
-    const card = this.mapToMovieCard(movie, date);
+    // Cada endpoint cumple su función: upcoming NO lleva formats/showtimes,
+    // así no se envían campos vacíos. Incluye sinopsis, tráiler y conteo.
     return {
-      ...card,
+      id: movie.id,
+      title: movie.title,
+      originalTitle: movie.originalTitle,
+      posterUrl: movie.posterUrl,
+      backdropUrl: movie.backdropUrl,
       synopsis: movie.synopsis,
       trailerUrl: movie.trailerUrl,
+      duration: movie.duration,
+      director: movie.director,
+      genres: movie.genres ? movie.genres.map(g => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+      })) : [],
+      classification: movie.classification ? {
+        id: movie.classification.id,
+        name: movie.classification.name,
+        code: movie.classification.code,
+        description: movie.classification.description,
+        minimumAge: movie.classification.minimumAge,
+      } : null,
+      language: movie.language ? {
+        id: movie.language.id,
+        name: movie.language.name,
+        code: movie.language.code,
+      } : null,
+      subtitleType: this.resolveSubtitleType(movie),
+      isPremiere: movie.isPremiere,
+      rating: Number(movie.rating),
+      ratingCount: movie.ratingCount,
+      releaseDate: movie.releaseDate,
       daysUntilRelease: this.daysUntil(movie.releaseDate, date),
     };
+  }
+
+  private resolveSubtitleType(movie: Movie): SubtitleType {
+    let subtitleType: SubtitleType = SubtitleType.SUBTITLED;
+    const langCode = movie.language?.code?.toUpperCase();
+    const langName = movie.language?.name?.toLowerCase() ?? '';
+    if (langCode === 'ES' || langName.includes('español') || langName.includes('espanol')) {
+      subtitleType = SubtitleType.DUBBED;
+    } else if (langCode === 'EN' || langName.includes('inglés') || langName.includes('ingles')) {
+      subtitleType = SubtitleType.SUBTITLED;
+    }
+    return subtitleType;
   }
 
   private daysUntil(releaseDate: Date | null, from: Date): number {

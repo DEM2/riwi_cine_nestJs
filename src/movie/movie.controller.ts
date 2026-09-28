@@ -1,6 +1,8 @@
 import { Controller, Get, Query, Post, Body, HttpCode, HttpStatus, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
 import { MovieService } from './movie.service.js';
+import { CreateGenreDto, GenreResponseDto } from './dto/create-genre.dto.js';
+import { CreateShowtimeDto } from './dto/create-showtime.dto.js';
 import { MovieFilterDto } from './dto/movie-filter.dto.js';
 import { CreateMovieDto } from './dto/create-movie.dto.js';
 import { CreateUpcomingNotificationDto, UpcomingMovieResponseDto, UpcomingNotificationResponseDto } from './dto/upcoming-movie.dto.js';
@@ -170,6 +172,34 @@ export class MovieController {
     @Query() filters?: MovieFilterDto,
   ): Promise<BillboardResponseDto> {
     return this.movieService.getFilteredMovies(filters || {});
+  }
+
+  @Get('genres')
+  @ApiOperation({ summary: 'Ver todos los géneros', description: 'Retorna la lista de géneros ordenada por nombre.' })
+  @ApiResponse({ status: 200, description: 'Lista de géneros', type: [GenreResponseDto] })
+  async getGenres(): Promise<GenreResponseDto[]> {
+    return this.movieService.getAllGenres();
+  }
+
+  @Post('genres')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear un género', description: 'Crea un nuevo género. El nombre debe ser único.' })
+  @ApiBody({ type: CreateGenreDto })
+  @ApiResponse({ status: 201, description: 'Género creado', type: GenreResponseDto })
+  @ApiResponse({ status: 409, description: 'El género ya existe' })
+  async createGenre(@Body() dto: CreateGenreDto): Promise<GenreResponseDto> {
+    return this.movieService.createGenre(dto);
+  }
+
+  @Post('showtimes')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Programar una función', description: 'Crea una función ACTIVE. Valida película ACTIVE, sala, formato y traslapes.' })
+  @ApiBody({ type: CreateShowtimeDto })
+  @ApiResponse({ status: 201, description: 'Función creada' })
+  @ApiResponse({ status: 404, description: 'Película, sala o formato no existe' })
+  @ApiResponse({ status: 409, description: 'Traslape de horario en la sala' })
+  async createShowtime(@Body() dto: CreateShowtimeDto) {
+    return this.movieService.createShowtime(dto);
   }
 
   @Get()

@@ -1,14 +1,66 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
-import { MovieCardResponseDto } from './movie-response.dto.js';
+import {
+  ClassificationResponseDto,
+  GenreResponseDto,
+  LanguageResponseDto,
+} from './movie-response.dto.js';
+import { SubtitleType } from '../enum/movie.enum.js';
 
-export class UpcomingMovieResponseDto extends MovieCardResponseDto {
+// Respuesta propia de próximos estrenos: SIN formats ni showtimes
+// (aún no tienen funciones programadas, no se envían campos vacíos).
+export class UpcomingMovieResponseDto {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiPropertyOptional()
+  originalTitle?: string;
+
+  @ApiPropertyOptional()
+  posterUrl?: string;
+
+  @ApiPropertyOptional()
+  backdropUrl?: string;
+
   @ApiPropertyOptional({ description: 'Sinopsis breve de la película' })
   synopsis?: string;
 
   @ApiPropertyOptional({ description: 'URL del tráiler oficial de YouTube' })
   trailerUrl?: string;
+
+  @ApiProperty()
+  duration: number;
+
+  @ApiPropertyOptional()
+  director?: string;
+
+  @ApiProperty({ type: [GenreResponseDto] })
+  genres: GenreResponseDto[];
+
+  @ApiProperty({ type: ClassificationResponseDto, nullable: true })
+  classification: ClassificationResponseDto | null;
+
+  @ApiProperty({ type: LanguageResponseDto, nullable: true })
+  language: LanguageResponseDto | null;
+
+  @ApiProperty({ enum: SubtitleType })
+  subtitleType: SubtitleType;
+
+  @ApiProperty()
+  isPremiere: boolean;
+
+  @ApiProperty()
+  rating: number;
+
+  @ApiProperty()
+  ratingCount: number;
+
+  @ApiProperty()
+  releaseDate: Date;
 
   @ApiProperty({ description: 'Días restantes hasta el estreno (0 si ya estrenó o sin fecha)' })
   daysUntilRelease: number;
