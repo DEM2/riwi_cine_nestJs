@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule, ObserveInstrument } from './app.module.js';
+import { ValidationPipe } from '@nestjs/common';
 import {
   DocumentBuilder,
   SwaggerModule,
@@ -17,6 +18,18 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     instrument: ObserveInstrument,
   });
+
+  /**
+   * Habilita la validación y transformación global de DTOs,
+   * de modo que los decoradores de `class-validator` se apliquen
+   * automáticamente a los datos de entrada.
+   */
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  );
 
   /**
    * Configuración principal de la documentación OpenAPI.
