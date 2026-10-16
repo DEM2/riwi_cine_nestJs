@@ -5,6 +5,8 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LocationsService } from './location.service.js';
@@ -81,6 +83,7 @@ export class LocationsController {
   }
 
   @Post('users/location')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'seleccionar la ubicacion del usuario (país, departamento y ciudad)' })
   @ApiResponse({
     status: 200,

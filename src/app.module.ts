@@ -7,6 +7,9 @@ import { LocationsModule } from './location/location.module.js';
 import { CinemaComplexModule } from './location/cinema-complex/cinema-complex.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MovieModule } from './movie/movie.module.js';
+import { FunctionModule } from './function/function.module.js';
+import { ReservationModule } from './reservation/reservation.module.js';
+import { SeedModule } from './seed/seed.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -45,6 +48,9 @@ imports: [
     CinemaComplexModule,
     HealthModule,
     MovieModule,
+    FunctionModule,
+    ReservationModule,
+    SeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],

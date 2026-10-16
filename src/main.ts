@@ -23,7 +23,12 @@ async function bootstrap(): Promise<void> {
   // exclude 'api' para que Swagger siga en http://localhost:3000/api y no /api/api
   app.setGlobalPrefix('api', { exclude: ['api'] });
 
-  // Validación y transformación de query params (strings -> numbers/booleans)
+  /**
+   * Habilita la validación y transformación global de DTOs,
+   * de modo que los decoradores de `class-validator` se apliquen
+   * automáticamente a los datos de entrada (incluida la conversión de
+   * query params: strings -> numbers/booleans).
+   */
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,

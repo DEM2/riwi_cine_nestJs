@@ -212,7 +212,7 @@ export class LocationsService {
     const country = await this.getCountryById(dto.countryId);
     const department = await this.getDepartmentById(dto.departmentId);
 
-    if (department.country!.id !== dto.countryId) {
+    if (department.country?.id !== dto.countryId) {
       throw new BadRequestException(
         `El departamento con id ${dto.departmentId} no pertenece al país con id ${dto.countryId}`,
       );
@@ -220,7 +220,7 @@ export class LocationsService {
 
     const city = await this.getCityById(dto.cityId);
 
-    if (city.department!.id !== dto.departmentId) {
+    if (city.department?.id !== dto.departmentId) {
       throw new BadRequestException(
         `La ciudad con id ${dto.cityId} no pertenece al departamento con id ${dto.departmentId}`,
       );
