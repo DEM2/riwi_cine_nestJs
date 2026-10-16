@@ -13,6 +13,13 @@ import { Genre } from '../entity/genre.entity.js';
 import { Classification } from '../entity/classification.entity.js';
 import { Language } from '../entity/language.entity.js';
 
+// RN-010: solo funciones en salas activas de complejos activos.
+const ACTIVE_ROOM_CONDITION = `showtime."roomId" IN (
+  SELECT r.id FROM rooms r
+  INNER JOIN cinema_complexes c ON c.id = r."cinemaComplexId"
+  WHERE r."isActive" = true AND c."isActive" = true
+)`;
+
 @Injectable()
 export class MovieDao {
   constructor(
@@ -44,7 +51,7 @@ export class MovieDao {
         showtimes: {
           format: true,
           room: {
-            theater: true,
+            cinemaComplex: true,
           },
         },
       },
@@ -64,7 +71,7 @@ export class MovieDao {
         showtimes: {
           format: true,
           room: {
-            theater: true,
+            cinemaComplex: true,
           },
         },
       },
@@ -80,11 +87,11 @@ export class MovieDao {
       .leftJoinAndSelect('movie.genres', 'genre')
       .leftJoinAndSelect('movie.classification', 'classification')
       .leftJoinAndSelect('movie.language', 'language')
-      .leftJoinAndSelect('movie.showtimes', 'showtime', `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate`)
+      .leftJoinAndSelect('movie.showtimes', 'showtime', `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate AND ${ACTIVE_ROOM_CONDITION}`)
       .leftJoinAndSelect('showtime.format', 'format')
       .leftJoinAndSelect('showtime.room', 'room')
-      .leftJoinAndSelect('room.theater', 'theater')
-      .leftJoinAndSelect('theater.city', 'city')
+      .leftJoinAndSelect('room.cinemaComplex', 'cinemaComplex')
+      .leftJoinAndSelect('cinemaComplex.city', 'city')
       .setParameter('showtimeStatus', 'ACTIVE')
       .setParameter('startDate', startDate)
       .setParameter('endDate', endDate)
@@ -114,7 +121,7 @@ export class MovieDao {
   }): Promise<Movie[]> {
     // RN-010: solo funciones ACTIVE. Para RN-011, si onlyAvailable=true filtramos también en el JOIN
     // para no traer showtimes agotados, sino traeríamos todas y filtraríamos en memoria.
-    let showtimeCondition = `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate`;
+    let showtimeCondition = `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate AND ${ACTIVE_ROOM_CONDITION}`;
     if (filters.onlyAvailable) {
       showtimeCondition += ` AND showtime.availableSeats > 0`;
     }
@@ -127,8 +134,8 @@ export class MovieDao {
       .leftJoinAndSelect('movie.showtimes', 'showtime', showtimeCondition)
       .leftJoinAndSelect('showtime.format', 'format')
       .leftJoinAndSelect('showtime.room', 'room')
-      .leftJoinAndSelect('room.theater', 'theater')
-      .leftJoinAndSelect('theater.city', 'city')
+      .leftJoinAndSelect('room.cinemaComplex', 'cinemaComplex')
+      .leftJoinAndSelect('cinemaComplex.city', 'city')
       .setParameter('showtimeStatus', 'ACTIVE')
       .setParameter('startDate', filters.startDate)
       .setParameter('endDate', filters.endDate)
@@ -183,7 +190,7 @@ export class MovieDao {
     }
 
     if (filters.theaterId) {
-      query.andWhere('theater.id = :theaterId', {
+      query.andWhere('cinemaComplex.id = :theaterId', {
         theaterId: filters.theaterId,
       });
     }
@@ -237,31 +244,6 @@ export class MovieDao {
     return this.movieRepository.manager
       .getRepository('formats')
       .find();
-  }
-
-  async findAllTheaters(cityId?: number) {
-    const repo = this.movieRepository.manager.getRepository('theaters');
-
-    if (cityId) {
-      return repo.find({
-        where: {
-          city: { id: cityId },
-          isActive: true,
-        },
-        relations: {
-          rooms: true,
-        },
-      });
-    }
-
-    return repo.find({
-      where: {
-        isActive: true,
-      },
-      relations: {
-        rooms: true,
-      },
-    });
   }
 
   createMovie(dto: CreateMovieDto): Movie {
@@ -344,7 +326,7 @@ async findMovieByTitleAndReleaseDate(
         language: true,
         showtimes: {
           format: true,
-          room: { theater: true },
+          room: { cinemaComplex: true },
         },
       },
       order: { releaseDate: 'ASC' },
@@ -360,7 +342,7 @@ async findMovieByTitleAndReleaseDate(
         language: true,
         showtimes: {
           format: true,
-          room: { theater: true },
+          room: { cinemaComplex: true },
         },
       },
     });

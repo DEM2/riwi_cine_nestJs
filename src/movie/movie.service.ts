@@ -211,10 +211,10 @@ export class MovieService {
         type: st.room.type,
         capacity: st.room.capacity,
       } : null,
-      theater: st.room?.theater ? {
-        id: st.room.theater.id,
-        name: st.room.theater.name,
-        address: st.room.theater.address,
+      theater: st.room?.cinemaComplex ? {
+        id: st.room.cinemaComplex.id,
+        name: st.room.cinemaComplex.name,
+        address: st.room.cinemaComplex.address,
         rooms: [],
       } : null,
     }));
