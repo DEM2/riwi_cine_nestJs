@@ -10,7 +10,6 @@ import { Genre } from './entity/genre.entity.js';
 import { Classification } from './entity/classification.entity.js';
 import { Language } from './entity/language.entity.js';
 import { Format } from './entity/format.entity.js';
-import { Theater } from './entity/theater.entity.js';
 import { Room } from './entity/room.entity.js';
 
 @Module({
@@ -23,7 +22,6 @@ import { Room } from './entity/room.entity.js';
       Classification,
       Language,
       Format,
-      Theater,
       Room,
     ]),
   ],

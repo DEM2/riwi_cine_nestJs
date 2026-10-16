@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
-import type { Theater } from './theater.entity.js';
+import type { CinemaComplex } from '../../location/cinema-complex/cinema-complex.entity.js';
 import type { Showtime } from './showtime.entity.js';
 import { RoomType } from '../enum/movie.enum.js';
 
@@ -27,8 +27,8 @@ export class Room {
   @Column({ default: true })
   isActive: boolean;
 
-  @ManyToOne('Theater', 'rooms')
-  theater: Theater;
+  @ManyToOne('CinemaComplex')
+  cinemaComplex: CinemaComplex;
 
   @OneToMany('Showtime', 'room')
   showtimes: Showtime[];
