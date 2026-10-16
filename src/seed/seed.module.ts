@@ -6,7 +6,7 @@ import { Seat } from '../seat/entity/seat.entity.js';
 import { Country } from '../location/country/country.entity.js';
 import { Department } from '../location/department/department.entity.js';
 import { City } from '../location/city/city.entity.js';
-import { Theater } from '../movie/entity/theater.entity.js';
+import { CinemaComplex } from '../location/cinema-complex/cinema-complex.entity.js';
 import { Room } from '../movie/entity/room.entity.js';
 import { Movie } from '../movie/entity/movie.entity.js';
 import { Format } from '../movie/entity/format.entity.js';
@@ -20,7 +20,7 @@ import { Showtime } from '../movie/entity/showtime.entity.js';
       Country,
       Department,
       City,
-      Theater,
+      CinemaComplex,
       Room,
       Movie,
       Format,

@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule, ObserveInstrument } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import { AppModule, ObserveInstrument } from './app.module.js';
 import {
   DocumentBuilder,
   SwaggerModule,
@@ -19,15 +19,22 @@ async function bootstrap(): Promise<void> {
     instrument: ObserveInstrument,
   });
 
+  // Prefijo global para mantener compatibilidad con Express: /api/movies
+  // exclude 'api' para que Swagger siga en http://localhost:3000/api y no /api/api
+  app.setGlobalPrefix('api', { exclude: ['api'] });
+
   /**
    * Habilita la validación y transformación global de DTOs,
    * de modo que los decoradores de `class-validator` se apliquen
-   * automáticamente a los datos de entrada.
+   * automáticamente a los datos de entrada (incluida la conversión de
+   * query params: strings -> numbers/booleans).
    */
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
       whitelist: true,
+      forbidNonWhitelisted: false,
     }),
   );
 

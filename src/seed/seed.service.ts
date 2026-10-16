@@ -6,7 +6,7 @@ import { Seat } from '../seat/entity/seat.entity.js';
 import { Country } from '../location/country/country.entity.js';
 import { Department } from '../location/department/department.entity.js';
 import { City } from '../location/city/city.entity.js';
-import { Theater } from '../movie/entity/theater.entity.js';
+import { CinemaComplex } from '../location/cinema-complex/cinema-complex.entity.js';
 import { Room } from '../movie/entity/room.entity.js';
 import { Movie } from '../movie/entity/movie.entity.js';
 import { Format } from '../movie/entity/format.entity.js';
@@ -50,8 +50,8 @@ export class SeedService {
     private readonly departmentRepository: Repository<Department>,
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
-    @InjectRepository(Theater)
-    private readonly theaterRepository: Repository<Theater>,
+    @InjectRepository(CinemaComplex)
+    private readonly cinemaComplexRepository: Repository<CinemaComplex>,
     @InjectRepository(Room)
     private readonly roomRepository: Repository<Room>,
     @InjectRepository(Movie)
@@ -128,21 +128,25 @@ export class SeedService {
         this.cityRepository.create({ name: 'barranquilla', department }),
       ));
 
-    const theater = await this.theaterRepository.save(
-      this.theaterRepository.create({
-        name: 'Multicine Demo',
-        address: 'Calle 1 #2-3',
-        city,
-        isActive: true,
-      }),
-    );
+    const cinemaComplex =
+      (await this.cinemaComplexRepository.findOne({
+        where: { name: 'multicine demo', city: { id: city.id } },
+      })) ??
+      (await this.cinemaComplexRepository.save(
+        this.cinemaComplexRepository.create({
+          name: 'multicine demo',
+          address: 'Calle 1 #2-3',
+          city,
+          isActive: true,
+        }),
+      ));
 
     const room = await this.roomRepository.save(
       this.roomRepository.create({
         name: 'Sala 1',
         number: 1,
         capacity: ROOM_CAPACITY,
-        theater,
+        cinemaComplex,
         isActive: true,
       }),
     );
