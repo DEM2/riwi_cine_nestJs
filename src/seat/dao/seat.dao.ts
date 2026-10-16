@@ -14,11 +14,12 @@ export class SeatDao {
   ) {}
 
   /**
-   * Obtiene las sillas habilitadas de una sala junto con su tipo.
+   * Obtiene todas las sillas de una sala (habilitadas e inhabilitadas) junto
+   * con su tipo, para representar la distribución real de la sala.
    */
-  async findEnabledByRoomWithType(roomId: number): Promise<Seat[]> {
+  async findByRoomWithType(roomId: number): Promise<Seat[]> {
     return this.seatRepository.find({
-      where: { room: { id: roomId }, isEnabled: true },
+      where: { room: { id: roomId } },
       relations: { seatType: true },
       order: { rowLabel: 'ASC', seatNumber: 'ASC' },
     });

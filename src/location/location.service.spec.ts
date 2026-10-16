@@ -110,6 +110,24 @@ describe('LocationsService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('rejects when the department has no country instead of crashing', async () => {
+      buildContext({ department: { id: 2, name: 'Atlántico', country: null } });
+
+      await expect(
+        service.setUserLocation({ countryId: 1, departmentId: 2, cityId: 3 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects when the city has no department instead of crashing', async () => {
+      buildContext({
+        city: { id: 3, name: 'Barranquilla', isActive: true, department: null },
+      });
+
+      await expect(
+        service.setUserLocation({ countryId: 1, departmentId: 2, cityId: 3 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('rejects when the city does not belong to the department', async () => {
       buildContext({
         city: { id: 3, name: 'Barranquilla', isActive: true, department: { id: 99 } },

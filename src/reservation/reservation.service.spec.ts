@@ -9,6 +9,8 @@ import { DataSource } from 'typeorm';
 import { ReservationService } from './reservation.service.js';
 import { SeatDao } from '../seat/dao/seat.dao.js';
 import { SeatLockDao } from '../seat/dao/seat-lock.dao.js';
+import { SeatLockAuditDao } from '../seat/dao/seat-lock-audit.dao.js';
+import { SeatLockAuditAction } from '../seat/entity/seat-lock-audit.entity.js';
 import { ShowtimeDao } from '../function/dao/showtime.dao.js';
 import { ShowtimeStatus } from '../movie/enum/movie.enum.js';
 
@@ -22,6 +24,7 @@ describe('ReservationService', () => {
     lockSeats: ReturnType<typeof vi.fn>;
     releaseSeats: ReturnType<typeof vi.fn>;
   };
+  let seatLockAuditDao: { record: ReturnType<typeof vi.fn> };
   let showtimeDao: { findById: ReturnType<typeof vi.fn> };
   let manager: Record<string, never>;
 
@@ -55,6 +58,7 @@ describe('ReservationService', () => {
       lockSeats: vi.fn(),
       releaseSeats: vi.fn(),
     };
+    seatLockAuditDao = { record: vi.fn() };
     showtimeDao = { findById: vi.fn() };
     manager = {};
 
@@ -77,6 +81,7 @@ describe('ReservationService', () => {
         ReservationService,
         { provide: SeatDao, useValue: seatDao },
         { provide: SeatLockDao, useValue: seatLockDao },
+        { provide: SeatLockAuditDao, useValue: seatLockAuditDao },
         { provide: ShowtimeDao, useValue: showtimeDao },
         { provide: ConfigService, useValue: configService },
         { provide: DataSource, useValue: dataSource },
@@ -94,7 +99,7 @@ describe('ReservationService', () => {
     it('locks the requested seats and returns the total', async () => {
       showtimeDao.findById.mockResolvedValue(futureShowtime());
       seatDao.findByIdsWithType.mockResolvedValue([seat(1, 5000)]);
-      seatLockDao.deleteExpired.mockResolvedValue(0);
+      seatLockDao.deleteExpired.mockResolvedValue([]);
       seatLockDao.findLockedByShowtime.mockResolvedValue([]);
       seatLockDao.lockSeats.mockResolvedValue([
         {
@@ -114,12 +119,36 @@ describe('ReservationService', () => {
       expect(result.total).toBe(25000);
       expect(result.seats).toHaveLength(1);
       expect(result.seats[0]).toMatchObject({ seatId: 1, cartId: 1 });
+      expect(seatLockAuditDao.record).toHaveBeenCalledWith(
+        SeatLockAuditAction.LOCKED,
+        [{ cartId: 1, showtimeId: 1, seatId: 1 }],
+        manager,
+      );
+    });
+
+    it('audits the expired locks it purges before locking', async () => {
+      const expired = [{ cartId: 9, showtimeId: 1, seatId: 4 }];
+      showtimeDao.findById.mockResolvedValue(futureShowtime());
+      seatDao.findByIdsWithType.mockResolvedValue([seat(1)]);
+      seatLockDao.deleteExpired.mockResolvedValue(expired);
+      seatLockDao.findLockedByShowtime.mockResolvedValue([]);
+      seatLockDao.lockSeats.mockResolvedValue([
+        { seat: { id: 1 }, cartId: 1, price: 20000, expiresAt: new Date() },
+      ]);
+
+      await service.lockSeats({ cartId: 1, showtimeId: 1, seatIds: [1] });
+
+      expect(seatLockAuditDao.record).toHaveBeenCalledWith(
+        SeatLockAuditAction.EXPIRED,
+        expired,
+        manager,
+      );
     });
 
     it('returns 409 when another cart holds a seat', async () => {
       showtimeDao.findById.mockResolvedValue(futureShowtime());
       seatDao.findByIdsWithType.mockResolvedValue([seat(1)]);
-      seatLockDao.deleteExpired.mockResolvedValue(0);
+      seatLockDao.deleteExpired.mockResolvedValue([]);
       seatLockDao.findLockedByShowtime.mockResolvedValue([
         {
           seat: { id: 1 },
@@ -139,7 +168,7 @@ describe('ReservationService', () => {
       seatDao.findByIdsWithType.mockResolvedValue(
         [1, 2, 3, 4, 5, 6].map((id) => seat(id)),
       );
-      seatLockDao.deleteExpired.mockResolvedValue(0);
+      seatLockDao.deleteExpired.mockResolvedValue([]);
       seatLockDao.findLockedByShowtime.mockResolvedValue([]);
 
       await expect(
@@ -164,20 +193,31 @@ describe('ReservationService', () => {
   });
 
   describe('releaseSeats', () => {
-    it('returns the number of released seats', async () => {
-      seatLockDao.releaseSeats.mockResolvedValue(3);
+    it('returns the number of released seats and audits them', async () => {
+      const released = [1, 2, 3].map((seatId) => ({
+        cartId: 1,
+        showtimeId: 1,
+        seatId,
+      }));
+      seatLockDao.releaseSeats.mockResolvedValue(released);
 
       await expect(
         service.releaseSeats({ cartId: 1, showtimeId: 1, seatIds: [1, 2, 3] }),
       ).resolves.toBe(3);
+      expect(seatLockAuditDao.record).toHaveBeenCalledWith(
+        SeatLockAuditAction.RELEASED,
+        released,
+        manager,
+      );
     });
 
     it('throws NotFound when nothing was released', async () => {
-      seatLockDao.releaseSeats.mockResolvedValue(0);
+      seatLockDao.releaseSeats.mockResolvedValue([]);
 
       await expect(
         service.releaseSeats({ cartId: 1, showtimeId: 1, seatIds: [1] }),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(seatLockAuditDao.record).not.toHaveBeenCalled();
     });
   });
 

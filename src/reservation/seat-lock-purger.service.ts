@@ -5,7 +5,10 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import { SeatLockDao } from '../seat/dao/seat-lock.dao.js';
+import { SeatLockAuditDao } from '../seat/dao/seat-lock-audit.dao.js';
+import { SeatLockAuditAction } from '../seat/entity/seat-lock-audit.entity.js';
 
 const PURGE_INTERVAL_MS = 60_000;
 
@@ -25,7 +28,9 @@ export class SeatLockPurgerService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly seatLockDao: SeatLockDao,
+    private readonly seatLockAuditDao: SeatLockAuditDao,
     private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
   ) {}
 
   onModuleInit(): void {
@@ -49,7 +54,15 @@ export class SeatLockPurgerService implements OnModuleInit, OnModuleDestroy {
 
   private async purge(): Promise<void> {
     try {
-      const deleted = await this.seatLockDao.deleteExpired();
+      const deleted = await this.dataSource.transaction(async (manager) => {
+        const expired = await this.seatLockDao.deleteExpired(manager);
+        await this.seatLockAuditDao.record(
+          SeatLockAuditAction.EXPIRED,
+          expired,
+          manager,
+        );
+        return expired.length;
+      });
       if (deleted > 0) {
         this.logger.log(
           `${deleted} bloqueo(s) expirado(s) eliminado(s).`,

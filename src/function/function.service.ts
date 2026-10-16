@@ -18,8 +18,8 @@ export class FunctionService {
   ) {}
 
   /**
-   * Obtiene el mapa de sillas habilitadas de una función con su estado
-   * (disponible o bloqueada) y su precio calculado.
+   * Obtiene el mapa de sillas de una función con su estado (disponible,
+   * bloqueada o inhabilitada) y su precio calculado.
    */
   async getShowtimeSeats(
     showtimeId: number,
@@ -28,7 +28,7 @@ export class FunctionService {
     assertShowtimeSelectable(showtime);
 
     const finalPrice = resolveFinalPrice(showtime);
-    const seats = await this.seatDao.findEnabledByRoomWithType(showtime.room.id);
+    const seats = await this.seatDao.findByRoomWithType(showtime.room.id);
     const locked = await this.seatLockDao.findLockedByShowtime(showtimeId);
 
     const lockedBySeat = new Map<number, number>();
@@ -48,8 +48,12 @@ export class FunctionService {
             name: seat.seatType.name,
           }
         : null,
-      status: lockedBySeat.has(seat.id) ? 'locked' : 'available',
-      lockedByCartId: lockedBySeat.get(seat.id) ?? null,
+      status: !seat.isEnabled
+        ? 'disabled'
+        : lockedBySeat.has(seat.id)
+          ? 'locked'
+          : 'available',
+      lockedByCartId: seat.isEnabled ? (lockedBySeat.get(seat.id) ?? null) : null,
       price: finalPrice + Number(seat.seatType?.extraCharge ?? 0),
     }));
   }

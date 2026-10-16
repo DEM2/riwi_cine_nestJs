@@ -33,8 +33,8 @@ export class ShowtimeSeatResponseDto {
   @ApiProperty({ type: SeatTypeResponseDto, nullable: true })
   seatType: SeatTypeResponseDto | null;
 
-  @ApiProperty({ enum: ['available', 'locked'] })
-  status: 'available' | 'locked';
+  @ApiProperty({ enum: ['available', 'locked', 'disabled'] })
+  status: 'available' | 'locked' | 'disabled';
 
   @ApiProperty({
     nullable: true,

@@ -17,7 +17,7 @@ export class FunctionController {
   @ApiOperation({
     summary: 'Obtener el mapa de sillas de una función',
     description:
-      'Devuelve las sillas habilitadas de la sala de la función con su estado (disponible o bloqueada), el carrito que las bloquea y el precio calculado.',
+      'Devuelve todas las sillas de la sala de la función con su estado (disponible, bloqueada o inhabilitada), el carrito que las bloquea y el precio calculado.',
   })
   @ApiParam({ name: 'id', type: Number, description: 'Identificador de la función' })
   @ApiResponse({

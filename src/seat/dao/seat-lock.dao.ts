@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+import { EntityManager, MoreThan, Repository } from 'typeorm';
 import { SeatLock } from '../entity/seat-lock.entity.js';
+import type { SeatLockRef } from './seat-lock-audit.dao.js';
 
 /**
  * Datos necesarios para crear un bloqueo de silla.
@@ -92,22 +93,17 @@ export class SeatLockDao {
   /**
    * Elimina los bloqueos expirados (incluye los que no tienen `expiresAt`).
    *
-   * @returns Cantidad de filas eliminadas.
+   * @returns Las sillas cuyo bloqueo fue eliminado.
    */
-  async deleteExpired(manager?: EntityManager): Promise<number> {
-    const repository = this.repository(manager);
-
-    const expired = await repository.delete({
-      expiresAt: LessThanOrEqual(new Date()),
-    });
-
-    const legacy = await repository
+  async deleteExpired(manager?: EntityManager): Promise<SeatLockRef[]> {
+    const result = await this.repository(manager)
       .createQueryBuilder()
       .delete()
-      .where('"expiresAt" IS NULL')
+      .where('"expiresAt" <= :now OR "expiresAt" IS NULL', { now: new Date() })
+      .returning(RETURNING_REF_COLUMNS)
       .execute();
 
-    return (expired.affected ?? 0) + (legacy.affected ?? 0);
+    return toRefs(result.raw);
   }
 
   /**
@@ -135,25 +131,38 @@ export class SeatLockDao {
   /**
    * Libera (elimina) las sillas indicadas de un carrito/función.
    *
-   * @returns Cantidad de filas eliminadas.
+   * @returns Las sillas cuyo bloqueo fue eliminado.
    */
   async releaseSeats(
     cartId: number,
     showtimeId: number,
     seatIds: number[],
-  ): Promise<number> {
+    manager?: EntityManager,
+  ): Promise<SeatLockRef[]> {
     if (seatIds.length === 0) {
-      return 0;
+      return [];
     }
 
-    const result = await this.seatLockRepository
+    const result = await this.repository(manager)
       .createQueryBuilder()
       .delete()
       .where('"cartId" = :cartId', { cartId })
       .andWhere('"showtimeId" = :showtimeId', { showtimeId })
       .andWhere('"seatId" IN (:...seatIds)', { seatIds })
+      .returning(RETURNING_REF_COLUMNS)
       .execute();
 
-    return result.affected ?? 0;
+    return toRefs(result.raw);
   }
+}
+
+const RETURNING_REF_COLUMNS = '"cartId", "showtimeId", "seatId"';
+
+function toRefs(raw: unknown): SeatLockRef[] {
+  const rows = Array.isArray(raw) ? raw : [];
+  return rows.map((row: Record<string, unknown>) => ({
+    cartId: Number(row.cartId),
+    showtimeId: Number(row.showtimeId),
+    seatId: Number(row.seatId),
+  }));
 }

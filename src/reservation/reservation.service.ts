@@ -9,7 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { SeatDao } from '../seat/dao/seat.dao.js';
 import { SeatLockDao } from '../seat/dao/seat-lock.dao.js';
+import { SeatLockAuditDao } from '../seat/dao/seat-lock-audit.dao.js';
 import { SeatLock } from '../seat/entity/seat-lock.entity.js';
+import { SeatLockAuditAction } from '../seat/entity/seat-lock-audit.entity.js';
 import { getMaxTicketsPerShowtime, getSeatLockTtlMinutes } from '../seat/seat-lock.config.js';
 import { ShowtimeDao } from '../function/dao/showtime.dao.js';
 import { assertShowtimeSelectable, resolveFinalPrice } from '../function/showtime.util.js';
@@ -32,6 +34,7 @@ export class ReservationService {
   constructor(
     private readonly seatDao: SeatDao,
     private readonly seatLockDao: SeatLockDao,
+    private readonly seatLockAuditDao: SeatLockAuditDao,
     private readonly showtimeDao: ShowtimeDao,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
@@ -81,7 +84,12 @@ export class ReservationService {
 
     try {
       return await this.dataSource.transaction(async (manager) => {
-        await this.seatLockDao.deleteExpired(manager);
+        const expired = await this.seatLockDao.deleteExpired(manager);
+        await this.seatLockAuditDao.record(
+          SeatLockAuditAction.EXPIRED,
+          expired,
+          manager,
+        );
 
         const locked = await this.seatLockDao.findLockedByShowtime(
           dto.showtimeId,
@@ -131,6 +139,15 @@ export class ReservationService {
         }));
 
         const created = await this.seatLockDao.lockSeats(rows, manager);
+        await this.seatLockAuditDao.record(
+          SeatLockAuditAction.LOCKED,
+          rows.map(({ cartId, showtimeId, seatId }) => ({
+            cartId,
+            showtimeId,
+            seatId,
+          })),
+          manager,
+        );
 
         return this.buildLockResult([...mine, ...created], dto.showtimeId);
       });
@@ -148,19 +165,28 @@ export class ReservationService {
    * Libera un conjunto de sillas previamente bloqueadas por un carrito.
    */
   async releaseSeats(dto: ReleaseSeatsDto): Promise<number> {
-    const deleted = await this.seatLockDao.releaseSeats(
-      dto.cartId,
-      dto.showtimeId,
-      dto.seatIds,
-    );
-
-    if (deleted === 0) {
-      throw new NotFoundException(
-        'No se encontraron sillas bloqueadas para liberar.',
+    return this.dataSource.transaction(async (manager) => {
+      const released = await this.seatLockDao.releaseSeats(
+        dto.cartId,
+        dto.showtimeId,
+        dto.seatIds,
+        manager,
       );
-    }
 
-    return deleted;
+      if (released.length === 0) {
+        throw new NotFoundException(
+          'No se encontraron sillas bloqueadas para liberar.',
+        );
+      }
+
+      await this.seatLockAuditDao.record(
+        SeatLockAuditAction.RELEASED,
+        released,
+        manager,
+      );
+
+      return released.length;
+    });
   }
 
   /**
