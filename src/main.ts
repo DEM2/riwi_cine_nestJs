@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import {
   DocumentBuilder,
@@ -17,6 +18,20 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     instrument: ObserveInstrument,
   });
+
+  // Prefijo global para mantener compatibilidad con Express: /api/movies
+  // exclude 'api' para que Swagger siga en http://localhost:3000/api y no /api/api
+  app.setGlobalPrefix('api', { exclude: ['api'] });
+
+  // Validación y transformación de query params (strings -> numbers/booleans)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+      whitelist: true,
+      forbidNonWhitelisted: false,
+    }),
+  );
 
   /**
    * Configuración principal de la documentación OpenAPI.

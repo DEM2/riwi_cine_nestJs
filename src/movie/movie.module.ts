@@ -4,6 +4,7 @@ import { MovieController } from './movie.controller.js';
 import { MovieService } from './movie.service.js';
 import { MovieDao } from './dao/movie.dao.js';
 import { Movie } from './entity/movie.entity.js';
+import { UpcomingNotification } from './entity/upcoming-notification.entity.js';
 import { Showtime } from './entity/showtime.entity.js';
 import { Genre } from './entity/genre.entity.js';
 import { Classification } from './entity/classification.entity.js';
@@ -16,6 +17,7 @@ import { Room } from './entity/room.entity.js';
   imports: [
     TypeOrmModule.forFeature([
       Movie,
+      UpcomingNotification,
       Showtime,
       Genre,
       Classification,

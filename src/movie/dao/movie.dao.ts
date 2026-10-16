@@ -3,6 +3,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Movie } from '../entity/movie.entity.js';
+import { Showtime } from '../entity/showtime.entity.js';
+import { Room } from '../entity/room.entity.js';
+import { Format } from '../entity/format.entity.js';
+import { UpcomingNotification } from '../entity/upcoming-notification.entity.js';
 import { MovieStatus } from '../enum/movie.enum.js';
 import { CreateMovieDto } from '../dto/create-movie.dto.js';
 import { Genre } from '../entity/genre.entity.js';
@@ -23,6 +27,9 @@ export class MovieDao {
 
     @InjectRepository(Language)
     private readonly languageRepository: Repository<Language>,
+
+    @InjectRepository(UpcomingNotification)
+    private readonly upcomingNotificationRepository: Repository<UpcomingNotification>,
   ) {}
 
   async findActiveMovies(): Promise<Movie[]> {
@@ -101,13 +108,23 @@ export class MovieDao {
     cityId?: number;
     onlyAvailable?: boolean;
     onlyPremieres?: boolean;
+    title?: string;
+    page?: number;
+    limit?: number;
   }): Promise<Movie[]> {
+    // RN-010: solo funciones ACTIVE. Para RN-011, si onlyAvailable=true filtramos también en el JOIN
+    // para no traer showtimes agotados, sino traeríamos todas y filtraríamos en memoria.
+    let showtimeCondition = `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate`;
+    if (filters.onlyAvailable) {
+      showtimeCondition += ` AND showtime.availableSeats > 0`;
+    }
+
     const query = this.movieRepository
       .createQueryBuilder('movie')
       .leftJoinAndSelect('movie.genres', 'genre')
       .leftJoinAndSelect('movie.classification', 'classification')
       .leftJoinAndSelect('movie.language', 'language')
-      .leftJoinAndSelect('movie.showtimes', 'showtime', `showtime.status = :showtimeStatus AND showtime.startTime BETWEEN :startDate AND :endDate`)
+      .leftJoinAndSelect('movie.showtimes', 'showtime', showtimeCondition)
       .leftJoinAndSelect('showtime.format', 'format')
       .leftJoinAndSelect('showtime.room', 'room')
       .leftJoinAndSelect('room.theater', 'theater')
@@ -118,6 +135,13 @@ export class MovieDao {
       .where('movie.status = :status', {
         status: MovieStatus.ACTIVE,
       });
+
+    // Filtros HU: title, genre, classification, language, theater/complex, format, roomType, city, premiere/onlyPremieres, available
+    if (filters.title) {
+      query.andWhere('movie.title ILIKE :title', {
+        title: `%${filters.title}%`,
+      });
+    }
 
     if (filters.genreId) {
       query.andWhere('genre.id = :genreId', {
@@ -147,9 +171,15 @@ export class MovieDao {
     }
 
     if (filters.formatCode) {
-      query.andWhere('format.code = :formatCode', {
-        formatCode: filters.formatCode,
-      });
+      // formatCode puede venir como code string ("2D") o como id numérico stringificado (legacy formatId)
+      const asNumber = Number(filters.formatCode);
+      if (!isNaN(asNumber) && String(asNumber) === filters.formatCode) {
+        query.andWhere('format.id = :formatId', { formatId: asNumber });
+      } else {
+        query.andWhere('format.code = :formatCode', {
+          formatCode: filters.formatCode,
+        });
+      }
     }
 
     if (filters.theaterId) {
@@ -164,14 +194,16 @@ export class MovieDao {
       });
     }
 
-    if (filters.onlyAvailable) {
-      query.andWhere('showtime.availableSeats > 0');
-    }
-
     if (filters.onlyPremieres) {
       query.andWhere('movie.isPremiere = :isPremiere', {
         isPremiere: true,
       });
+    }
+
+    // Paginación a nivel DB solo si se pide (útil para /weekly con limit)
+    if (filters.page && filters.limit) {
+      const skip = (filters.page - 1) * filters.limit;
+      query.skip(skip).take(filters.limit);
     }
 
     return query
@@ -181,7 +213,16 @@ export class MovieDao {
   }
 
   async findAllGenres() {
-    return this.genreRepository.find();
+    return this.genreRepository.find({ order: { name: 'ASC' } });
+  }
+
+  async findGenreByName(name: string): Promise<Genre | null> {
+    return this.genreRepository.findOne({ where: { name } });
+  }
+
+  async createGenre(name: string, description?: string): Promise<Genre> {
+    const genre = this.genreRepository.create({ name, description });
+    return this.genreRepository.save(genre);
   }
 
   async findAllClassifications() {
@@ -252,21 +293,23 @@ export class MovieDao {
     movie.isFeatured = dto.is_release ?? false;
     movie.rating = dto.audience_rating ?? 0;
 
-    // Múltiples géneros
+    // Múltiples géneros (se asume IDs existentes)
     if (dto.genres && dto.genres.length > 0) {
       movie.genres = dto.genres.map(
         (id) => ({ id }) as Genre,
       );
     }
 
-    // Classification
+    // Classification: dto.rating viene como string tipo "PG-13". Intentamos mapear por code si existe,
+    // sino se deja null y se resuelve por service si hace falta lookup. Evitamos crear clasificación fantasma.
+    // Nota: Para producción hacer lookup previo; aquí se deja como referencia por code.
     if (dto.rating) {
       movie.classification = {
         code: dto.rating,
       } as Classification;
     }
 
-    // Language
+    // Language: dto.language viene como nombre. Se deja como referencia; el service podría hacer lookup.
     if (dto.language) {
       movie.language = {
         name: dto.language,
@@ -290,4 +333,92 @@ async findMovieByTitleAndReleaseDate(
     },
   });
 }
+
+  // HU-005: RN-017 solo películas con estado UPCOMING, ordenadas por fecha ascendente
+  async findUpcomingMovies(): Promise<Movie[]> {
+    return this.movieRepository.find({
+      where: { status: MovieStatus.UPCOMING },
+      relations: {
+        genres: true,
+        classification: true,
+        language: true,
+        showtimes: {
+          format: true,
+          room: { theater: true },
+        },
+      },
+      order: { releaseDate: 'ASC' },
+    });
+  }
+
+  async findUpcomingMovieById(id: number): Promise<Movie | null> {
+    return this.movieRepository.findOne({
+      where: { id, status: MovieStatus.UPCOMING },
+      relations: {
+        genres: true,
+        classification: true,
+        language: true,
+        showtimes: {
+          format: true,
+          room: { theater: true },
+        },
+      },
+    });
+  }
+
+  // HU-005: RN-019 evita duplicados por usuario y película
+  async findUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotification | null> {
+    return this.upcomingNotificationRepository.findOne({ where: { userId, movieId } });
+  }
+
+  async saveUpcomingNotification(userId: number, movieId: number): Promise<UpcomingNotification> {
+    const notification = this.upcomingNotificationRepository.create({ userId, movieId });
+    return this.upcomingNotificationRepository.save(notification);
+  }
+
+  // ---- Showtimes ----
+  async findActiveMovieForShowtime(id: number): Promise<Movie | null> {
+    return this.movieRepository.findOne({ where: { id, status: MovieStatus.ACTIVE } });
+  }
+
+  async findRoom(id: number): Promise<Room | null> {
+    return this.movieRepository.manager.getRepository(Room).findOne({ where: { id } });
+  }
+
+  async findFormat(id: number): Promise<Format | null> {
+    return this.movieRepository.manager.getRepository(Format).findOne({ where: { id } });
+  }
+
+  async hasOverlap(roomId: number, start: Date, end: Date): Promise<boolean> {
+    const count = await this.movieRepository.manager
+      .getRepository(Showtime)
+      .createQueryBuilder('s')
+      .where('s."roomId" = :roomId', { roomId })
+      .andWhere('s.status = :st', { st: 'ACTIVE' })
+      .andWhere('s."startTime" < :end AND s."endTime" > :start', { start, end })
+      .getCount();
+    return count > 0;
+  }
+
+  async createShowtime(data: {
+    movie: Movie; room: Room; format: Format;
+    startTime: Date; endTime: Date;
+    basePrice: number; finalPrice: number;
+    totalSeats: number; availableSeats: number;
+  }): Promise<Showtime> {
+    const repo = this.movieRepository.manager.getRepository(Showtime);
+    const st = repo.create({
+      movie: data.movie,
+      room: data.room,
+      format: data.format,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      basePrice: data.basePrice,
+      finalPrice: data.finalPrice,
+      totalSeats: data.totalSeats,
+      availableSeats: data.availableSeats,
+      status: 'ACTIVE' as any,
+    });
+    return repo.save(st);
+  }
 }
